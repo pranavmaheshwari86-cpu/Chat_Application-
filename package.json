@@ -1,0 +1,17 @@
+{
+  "name": "real-time-chat-application",
+  "version": "1.0.0",
+  "description": "Real-time chat application",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "npm start",
+    "start": "npx concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm run start:dev",
+    "start:frontend": "cd frontend && npm run dev",
+    "install:all": "npm install"
+  }
+}

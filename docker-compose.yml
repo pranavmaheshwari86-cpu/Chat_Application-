@@ -1,0 +1,51 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: flashchat-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: flashchat-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  server:
+    build: ./backend
+    container_name: flashchat-server
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/flashchat
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-flashchat-access-secret}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-flashchat-refresh-secret}
+      - JWT_ACCESS_EXPIRY=15m
+      - JWT_REFRESH_EXPIRY=7d
+      - CLIENT_URL=http://localhost:3000
+    depends_on:
+      - mongodb
+      - redis
+    restart: unless-stopped
+
+  client:
+    build: ./frontend
+    container_name: flashchat-client
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

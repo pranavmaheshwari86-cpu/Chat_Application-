@@ -1,0 +1,13 @@
+.env
+.env.*
+node_modules
+dist
+build
+.next
+coverage
+logs
+*.log
+*.rdb
+Redis/
+*.zip
+tsconfig.tsbuildinfo
