@@ -8,10 +8,16 @@
     "shared"
   ],
   "scripts": {
-    "dev": "npm start",
-    "start": "npx concurrently \"npm run start:backend\" \"npm run start:frontend\"",
-    "start:backend": "cd backend && npm run start:dev",
-    "start:frontend": "cd frontend && npm run dev",
+    "dev": "npx concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm --workspace=backend run start:dev",
+    "dev:frontend": "npm --workspace=frontend run dev",
+    "build:shared": "npm --workspace=shared run build",
+    "build:backend": "npm --workspace=backend run build",
+    "build:frontend": "npm --workspace=frontend run build",
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "start:backend": "npm --workspace=backend run start:prod",
+    "start:frontend": "npm --workspace=frontend run start",
+    "start": "npm run start:backend & npm run start:frontend",
     "install:all": "npm install"
   }
 }

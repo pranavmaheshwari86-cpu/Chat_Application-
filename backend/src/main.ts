@@ -15,29 +15,9 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { StructuredLogger } from './common/logger/structured-logger.service';
 
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import path from 'path';
-import fs from 'fs';
-
 async function bootstrap() {
   const logger = new StructuredLogger('Bootstrap');
   try {
-    // Persistent MongoDB: data survives restarts via a local dbPath folder
-    const dbPath = path.join(__dirname, '..', 'mongodb-data');
-    if (!fs.existsSync(dbPath)) {
-      fs.mkdirSync(dbPath, { recursive: true });
-    }
-    const mongod = await MongoMemoryServer.create({
-      instance: {
-        dbPath,
-        storageEngine: 'wiredTiger',
-      },
-    });
-    process.env.MONGODB_URI = mongod.getUri();
-    logger.log(
-      `🟢 Persistent MongoDB started at ${process.env.MONGODB_URI} (data: ${dbPath})`,
-    );
-
     const app = await NestFactory.create(AppModule, {
       bufferLogs: true,
       cors: {

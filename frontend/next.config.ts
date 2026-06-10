@@ -4,7 +4,6 @@ import withPWAInit from "@ducanh2912/next-pwa";
 const nextConfig = {
   devIndicators: false,
   output: "standalone",
-  turbopack: {},
   transpilePackages: ['@chat/shared'],
   images: {
     remotePatterns: [

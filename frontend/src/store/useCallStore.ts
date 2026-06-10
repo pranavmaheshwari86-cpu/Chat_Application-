@@ -239,7 +239,7 @@ export const useCallStore = create<CallState>((set, get) => ({
 
     if (pc) {
       try {
-        if (signalData.type === 'offer') {
+        if (signalData.type === 'offer' && signalData.offer) {
           await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
@@ -248,9 +248,9 @@ export const useCallStore = create<CallState>((set, get) => ({
             callId,
             signalData: { type: 'answer', answer },
           });
-        } else if (signalData.type === 'answer') {
+        } else if (signalData.type === 'answer' && signalData.answer) {
           await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
-        } else if (signalData.type === 'candidate') {
+        } else if (signalData.type === 'candidate' && signalData.candidate) {
           await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
         }
       } catch (err) {
