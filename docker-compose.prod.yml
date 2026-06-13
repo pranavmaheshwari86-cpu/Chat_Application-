@@ -2,31 +2,39 @@ services:
   mongodb:
     image: mongo:7
     container_name: flashchat-mongo-prod
-    ports:
-      - "27017:27017"
     volumes:
       - mongo-data:/data/db
     restart: always
     command: --wiredTigerCacheSizeGB 1.5
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: flashchat-redis-prod
-    ports:
-      - "6379:6379"
     restart: always
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   server:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
     container_name: flashchat-server-prod
     ports:
-      - "4000:4000"
+      - "${PORT:-4000}:${PORT:-4000}"
     environment:
       - NODE_ENV=production
-      - PORT=4000
+      - PORT=${PORT:-4000}
       - MONGODB_URI=mongodb://mongodb:27017/flashchat
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -37,15 +45,24 @@ services:
       - CLIENT_URL=${CLIENT_URL}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - THROTTLE_TTL=60
       - THROTTLE_LIMIT=150
     depends_on:
-      - mongodb
-      - redis
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:${PORT:-4000}/api/health').then(r=>{if(!r.ok)throw 1}).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -53,7 +70,9 @@ services:
           memory: 1G
 
   client:
-    build: ./frontend
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile
     container_name: flashchat-client-prod
     ports:
       - "3000:3000"
@@ -63,7 +82,8 @@ services:
       - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     restart: always
     deploy:
       resources:

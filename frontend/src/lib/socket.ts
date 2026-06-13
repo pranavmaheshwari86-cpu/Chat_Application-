@@ -31,10 +31,11 @@ export const useSocket = () => {
           setIsConnected(false);
         },
         onMessageNew: async (payload: any) => {
-          addMessage(payload.message);
+          const state = useChatStore.getState();
+          state.addMessage(payload.message);
           await cacheMessages([payload.message]);
           
-          const currentConvs = useChatStore.getState().conversations;
+          const currentConvs = state.conversations;
           if (!currentConvs.some((c: any) => c._id === payload.conversationId)) {
             try {
               const { chatService } = await import('../services/chat.service');
@@ -44,29 +45,26 @@ export const useSocket = () => {
               console.error('Failed to fetch new conversation', err);
             }
           } else {
-            updateConversationLastMessage(payload.conversationId, payload.message);
+            state.updateConversationLastMessage(payload.conversationId, payload.message);
           }
         },
         onMessageEdited: (payload: any) => {
-          updateMessage(payload.messageId, payload.conversationId, {
+          useChatStore.getState().updateMessage(payload.messageId, payload.conversationId, {
             content: payload.content,
             isEdited: true,
           });
         },
         onMessageDeleted: (payload: any) => {
-          deleteMessage(payload.messageId, payload.conversationId);
+          useChatStore.getState().deleteMessage(payload.messageId, payload.conversationId);
         }
       });
     }
 
     return () => {
-      // We don't necessarily disconnect on unmount if we want background sync
-      // but if the user explicitly logs out, isAuthenticated will become false
-      if (!isAuthenticated) {
-        socketManager.disconnect();
-      }
+      // Disconnect on unmount or when auth state changes to prevent multiple listeners
+      socketManager.disconnect();
     };
-  }, [isAuthenticated, accessToken, addMessage, updateMessage, deleteMessage, updateConversationLastMessage]);
+  }, [isAuthenticated, accessToken]);
 
   // We do not return the socket reference during render directly from a ref,
   // we just return a getter if we need it

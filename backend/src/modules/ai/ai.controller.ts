@@ -1,11 +1,13 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import type { AuthUser, JwtPayload } from '@chat/shared';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AiService } from './ai.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('AI')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}

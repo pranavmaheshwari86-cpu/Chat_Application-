@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Community, CommunityDocument } from './schemas/community.schema';
@@ -72,17 +77,40 @@ export class CommunitiesService {
     return this.communityModel.find({ _id: { $in: communityIds } }).exec();
   }
 
-  async getChannelsForCommunity(communityId: string) {
+  async getChannelsForCommunity(userId: string, communityId: string) {
+    const member = await this.memberModel
+      .findOne({
+        communityId: new Types.ObjectId(communityId),
+        userId: new Types.ObjectId(userId),
+      })
+      .exec();
+
+    if (!member) {
+      throw new ForbiddenException('Not a member of this community');
+    }
+
     return this.channelModel
       .find({ communityId: new Types.ObjectId(communityId) })
       .exec();
   }
 
   async createChannel(
+    userId: string,
     communityId: string,
     name: string,
     type: string = 'text',
   ) {
+    const member = await this.memberModel
+      .findOne({
+        communityId: new Types.ObjectId(communityId),
+        userId: new Types.ObjectId(userId),
+      })
+      .exec();
+
+    if (!member) {
+      throw new ForbiddenException('Not a member of this community');
+    }
+
     return this.channelModel.create({
       communityId: new Types.ObjectId(communityId),
       name,

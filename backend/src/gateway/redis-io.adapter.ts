@@ -28,6 +28,9 @@ export class RedisIoAdapter extends IoAdapter {
         port,
         password,
         maxRetriesPerRequest: 3,
+        keepAlive: 10000,
+        enableReadyCheck: false,
+        family: 4,
         retryStrategy(times) {
           if (times > 3) return null; // stop retrying after 3 attempts
           return Math.min(times * 200, 1000);

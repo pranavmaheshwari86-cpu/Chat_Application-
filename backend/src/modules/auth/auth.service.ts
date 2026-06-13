@@ -108,34 +108,28 @@ export class AuthService {
     let user = await this.userModel.findOne({ email: googleUser.email });
 
     if (!user) {
-      // Create new user for google login
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      let username = googleUser.email.split('@')[0];
-
-      // Ensure unique username
-
-      const usernameExists = await this.userModel.findOne({ username });
-      if (usernameExists) {
-        username = `${username}${Math.floor(Math.random() * 10000)}`;
+      // Guarantee unique username with a deterministic loop
+      let suffix = 0;
+      let emailPrefix = typeof googleUser.email === 'string' ? googleUser.email.split('@')[0] : 'user';
+      let username = emailPrefix;
+      
+      while (await this.userModel.findOne({ username })) {
+        suffix++;
+        username = `${emailPrefix}${suffix}`;
       }
 
       user = new this.userModel({
         email: googleUser.email,
-
         username,
-
         displayName: googleUser.displayName || googleUser.firstName,
-
         avatar: googleUser.picture,
         provider: 'google',
-
         providerId: googleUser.providerId,
         isVerified: true,
         status: 'online',
         lastSeen: new Date(),
       });
     } else {
-      // Update status
       user.status = 'online';
       user.lastSeen = new Date();
     }
@@ -157,7 +151,6 @@ export class AuthService {
       lastSeen: new Date(),
     });
 
-    // Emit logout event to forcefully disconnect sockets
     this.eventEmitter.emit('user.logout', { userId });
 
     this.logger.log(`User logged out: ${userId}`, {
@@ -169,7 +162,10 @@ export class AuthService {
   }
 
   async refreshTokens(userId: string, refreshToken: string) {
-    const user = await this.userModel.findById(userId);
+    const user = await this.userModel
+      .findById(userId)
+      .select('+refreshTokenHash');
+
     if (!user || !user.refreshTokenHash) {
       this.logger.warn(
         `Failed token refresh: User not found or no refresh token`,
@@ -182,11 +178,19 @@ export class AuthService {
       refreshToken,
       user.refreshTokenHash,
     );
+
     if (!isRefreshTokenValid) {
-      this.logger.warn(`Failed token refresh: Invalid token`, {
-        action: 'TOKEN_REFRESH_FAILED',
-        userId,
+      // Refresh token reuse detected — a stolen token was replayed.
+      // Invalidate ALL sessions for this user as a security precaution.
+      await this.userModel.findByIdAndUpdate(userId, {
+        $unset: { refreshTokenHash: 1 },
       });
+      this.eventEmitter.emit('user.logout', { userId });
+
+      this.logger.error(
+        `Refresh token reuse detected for user ${userId} — all sessions invalidated`,
+        { action: 'TOKEN_REUSE_DETECTED', userId },
+      );
       throw new UnauthorizedException('Access Denied');
     }
 

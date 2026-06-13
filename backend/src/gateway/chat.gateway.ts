@@ -28,6 +28,7 @@ import type { AuthenticatedSocket } from '@chat/shared';
 import { ClientEvents, ServerEvents } from '../common/constants/socket-events';
 import { SendWsMessageDto } from './dto/send-ws-message.dto';
 import { ConversationsService } from '../modules/conversations/conversations.service';
+import { MessagesService } from '../modules/messages/messages.service';
 
 @WebSocketGateway({ namespace: '/' })
 @UseGuards(WsThrottlerGuard, WsAuthGuard)
@@ -45,56 +46,62 @@ export class ChatGateway
     private configService: ConfigService,
     private jwtService: JwtService,
     private conversationsService: ConversationsService,
+    @Inject(forwardRef(() => MessagesService))
+    private messagesService: MessagesService,
   ) {}
-
-  // MessagesService will be injected lazily to avoid circular dependency
-  private messagesService: any;
-
-  setMessagesService(service: any) {
-    this.messagesService = service;
-  }
 
   afterInit(server: Server) {
     this.logger.log('ChatGateway initialized');
+
+    // Use Socket.io middleware to authenticate BEFORE connection is established
+    server.use((socket: AuthenticatedSocket, next) => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      (async () => {
+        try {
+          let token = '';
+          const authHeader = socket.handshake.headers.authorization;
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+          } else if (socket.handshake.auth?.token) {
+            token = socket.handshake.auth.token;
+          }
+
+          if (!token) {
+            next(new Error('Authentication error'));
+            return;
+          }
+
+          const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
+          const payload = await this.jwtService.verifyAsync(token, { secret });
+
+          socket.user = {
+            userId: payload.sub,
+            email: payload.email,
+            username: payload.username,
+            displayName: payload.displayName,
+          };
+
+          next();
+        } catch (err) {
+          next(new Error('Authentication error'));
+        }
+      })();
+    });
   }
 
-  async handleConnection(client: AuthenticatedSocket) {
-    try {
-      // Manual auth for connection since guards don't run on handleConnection
-      let token = '';
-      const authHeader = client.handshake.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1];
-      } else if (client.handshake.auth?.token) {
-        token = client.handshake.auth.token;
-      }
-
-      if (!token) throw new Error('No token');
-
-      const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
-
-      const payload = await this.jwtService.verifyAsync(token, { secret });
-
-      client.user = {
-        userId: payload.sub,
-
-        email: payload.email,
-
-        username: payload.username,
-
-        displayName: payload.displayName,
-      };
-
-      // Join personal room for real-time alerts across all conversations
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      client.join(`user:${client.user.userId}`);
-      this.logger.log(
-        `Client connected and joined personal room: ${client.id} (User: ${client.user.userId})`,
-      );
-    } catch (err) {
-      this.logger.warn(`Client connected but unauthenticated: ${client.id}`);
-      // They will fail the WsAuthGuard on any message
+  handleConnection(client: AuthenticatedSocket) {
+    if (!client.user) {
+      this.logger.warn(`Client connected without user object: ${client.id}`);
+      client.disconnect();
+      return;
     }
+
+    // Join personal room for real-time alerts across all conversations
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    client.join(`user:${client.user.userId}`);
+    this.logger.log(
+      `Client connected and joined personal room: ${client.id} (User: ${client.user.userId})`,
+    );
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
@@ -156,7 +163,7 @@ export class ChatGateway
   ) {
     try {
       // Save message to DB via MessagesService — this persists and emits socket events
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
       const message = await this.messagesService.sendMessage(
         payload.conversationId,
         client.user.userId,
@@ -183,7 +190,6 @@ export class ChatGateway
     payload: { messageId: string; conversationId: string; content: string },
   ) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const message = await this.messagesService.editMessage(
         payload.messageId,
         payload.conversationId,
@@ -205,7 +211,6 @@ export class ChatGateway
     @MessageBody() payload: { messageId: string; conversationId: string },
   ) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       await this.messagesService.deleteMessage(
         payload.messageId,
         payload.conversationId,

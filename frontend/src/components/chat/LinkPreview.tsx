@@ -22,7 +22,7 @@ export default function LinkPreview({ url }: LinkPreviewProps) {
     let isMounted = true;
     const fetchPreview = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
         const res = await axios.get(`${apiUrl}/messages/preview/link`, {
           params: { url }
         });

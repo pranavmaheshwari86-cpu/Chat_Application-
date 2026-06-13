@@ -17,52 +17,40 @@ interface AuthState {
   checkAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      accessToken: null,
-      isAuthenticated: false,
-      isInitializing: true,
-      setAuth: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
-      setAccessToken: (accessToken) => set({ accessToken }),
-      updateUser: (data) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...data } : null,
-        })),
-      logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
-      checkAuth: async () => {
-        try {
-          const { data } = await api.post('/auth/refresh');
-          const newAccessToken = data?.data?.accessToken || data?.accessToken;
-          const userPayload = data?.data?.user || data?.user;
-          if (newAccessToken && userPayload) {
-            // Normalize backend id
-            const normalizedUser = {
-              ...userPayload,
-              _id: userPayload._id || userPayload.id,
-            };
-            set({ user: normalizedUser, accessToken: newAccessToken, isAuthenticated: true, isInitializing: false });
-          } else if (newAccessToken) {
-            set({ accessToken: newAccessToken, isAuthenticated: true, isInitializing: false });
-          } else {
-            set({ user: null, accessToken: null, isAuthenticated: false, isInitializing: false });
-          }
-        } catch (error) {
-          set({ user: null, accessToken: null, isAuthenticated: false, isInitializing: false });
-        }
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  accessToken: null,
+  isAuthenticated: false,
+  isInitializing: true,
+  setAuth: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
+  setAccessToken: (accessToken) => set({ accessToken }),
+  updateUser: (data) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, ...data } : null,
+    })),
+  logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
+  checkAuth: async () => {
+    try {
+      const { data } = await api.post('/auth/refresh');
+      const newAccessToken = data?.data?.accessToken || data?.accessToken;
+      const userPayload = data?.data?.user || data?.user;
+      if (newAccessToken && userPayload) {
+        // Normalize backend id
+        const normalizedUser = {
+          ...userPayload,
+          _id: userPayload._id || userPayload.id,
+        };
+        set({ user: normalizedUser, accessToken: newAccessToken, isAuthenticated: true, isInitializing: false });
+      } else if (newAccessToken) {
+        set({ accessToken: newAccessToken, isAuthenticated: true, isInitializing: false });
+      } else {
+        set({ user: null, accessToken: null, isAuthenticated: false, isInitializing: false });
       }
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({ 
-        // DO NOT persist accessToken to localStorage for security
-        user: state.user,
-        isAuthenticated: state.isAuthenticated
-      }),
+    } catch (error) {
+      set({ user: null, accessToken: null, isAuthenticated: false, isInitializing: false });
     }
-  )
-);
+  }
+}));
 
 // Optimized Selectors
 export const useAuthUser = () => useAuthStore((state) => state.user);

@@ -5,6 +5,7 @@ import {
   IsString,
   validateSync,
   MinLength,
+  IsOptional,
 } from 'class-validator';
 
 enum Environment {
@@ -41,6 +42,14 @@ class EnvironmentVariables {
   })
   JWT_REFRESH_SECRET: string;
 
+  @IsString()
+  CLIENT_URL: string;
+
+  @IsOptional()
+  @IsString()
+  GEMINI_API_KEY: string;
+
+  @IsOptional()
   @IsString()
   OPENROUTER_API_KEY: string;
 }

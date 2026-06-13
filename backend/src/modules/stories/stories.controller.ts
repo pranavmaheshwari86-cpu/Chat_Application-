@@ -13,6 +13,75 @@ import type { AuthenticatedRequest } from '@chat/shared';
 import { StoriesService } from './stories.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  IsNumber,
+  Min,
+} from 'class-validator';
+
+export class CreateStoryDto {
+  @IsString()
+  @IsNotEmpty()
+  type: string;
+
+  @IsString()
+  @IsOptional()
+  mediaUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  thumbnailUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  text?: string;
+
+  @IsString()
+  @IsOptional()
+  backgroundColor?: string;
+
+  @IsString()
+  @IsOptional()
+  fontStyle?: string;
+
+  @IsString()
+  @IsOptional()
+  visibility?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  allowedUserIds?: string[];
+
+  @IsArray()
+  @IsOptional()
+  pollOptions?: Array<{ text: string }>;
+
+  @IsString()
+  @IsOptional()
+  communityId?: string;
+}
+
+export class StoryReactionDto {
+  @IsString()
+  @IsNotEmpty()
+  emoji: string;
+}
+
+export class StoryVoteDto {
+  @IsNumber()
+  @Min(0)
+  optionIndex: number;
+}
+
+export class StoryHighlightDto {
+  @IsString()
+  @IsNotEmpty()
+  groupName: string;
+}
 
 @ApiTags('Stories')
 @ApiBearerAuth()
@@ -23,22 +92,7 @@ export class StoriesController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new story (image, video, text, poll)' })
-  async create(
-    @Req() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      type: string;
-      mediaUrl?: string;
-      thumbnailUrl?: string;
-      text?: string;
-      backgroundColor?: string;
-      fontStyle?: string;
-      visibility?: string;
-      allowedUserIds?: string[];
-      pollOptions?: Array<{ text: string }>;
-      communityId?: string;
-    },
-  ) {
+  async create(@Req() req: AuthenticatedRequest, @Body() body: CreateStoryDto) {
     const story = await this.storiesService.createStory(req.user.id, body);
     return { data: story };
   }
@@ -83,7 +137,7 @@ export class StoriesController {
   async react(
     @Param('id') id: string,
     @Req() req: AuthenticatedRequest,
-    @Body() body: { emoji: string },
+    @Body() body: StoryReactionDto,
   ) {
     await this.storiesService.reactToStory(id, req.user.id, body.emoji);
     return { success: true };
@@ -94,7 +148,7 @@ export class StoriesController {
   async vote(
     @Param('id') id: string,
     @Req() req: AuthenticatedRequest,
-    @Body() body: { optionIndex: number },
+    @Body() body: StoryVoteDto,
   ) {
     const story = await this.storiesService.votePoll(
       id,
@@ -111,7 +165,7 @@ export class StoriesController {
   async saveHighlight(
     @Param('id') id: string,
     @Req() req: AuthenticatedRequest,
-    @Body() body: { groupName: string },
+    @Body() body: StoryHighlightDto,
   ) {
     const story = await this.storiesService.saveToHighlight(
       id,

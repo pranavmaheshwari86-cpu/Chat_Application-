@@ -62,9 +62,18 @@ export const useChatStore = create<ChatState>((set) => ({
   setActiveConversation: (id) => set({ activeConversationId: id }),
   
   setMessages: (conversationId, messages) =>
-    set((state) => ({
-      messages: { ...state.messages, [conversationId]: messages },
-    })),
+    set((state) => {
+      const newMessagesDict = { ...state.messages };
+      // Prevent memory leak by limiting cached conversations
+      const keys = Object.keys(newMessagesDict);
+      if (keys.length > 20 && !newMessagesDict[conversationId]) {
+        const toRemove = keys.find(k => k !== state.activeConversationId);
+        if (toRemove) delete newMessagesDict[toRemove];
+      }
+      
+      newMessagesDict[conversationId] = messages.slice(0, 500); // Cap at 500 messages per conversation
+      return { messages: newMessagesDict };
+    }),
     
   addMessage: (message) =>
     set((state) => {
@@ -74,10 +83,12 @@ export const useChatStore = create<ChatState>((set) => ({
       // Prevent duplicates
       if (filtered.some(m => m._id === message._id)) return state;
       
+      const newMessages = [message, ...filtered].slice(0, 500); // Limit memory leak
+      
       return {
         messages: {
           ...state.messages,
-          [message.conversationId]: [message, ...filtered], // Assuming descending order
+          [message.conversationId]: newMessages,
         },
       };
     }),
@@ -106,14 +117,22 @@ export const useChatStore = create<ChatState>((set) => ({
       };
     }),
     
-  updateConversationLastMessage: (conversationId, message) =>
+    updateConversationLastMessage: (conversationId, message) =>
     set((state) => {
       const conversations = [...state.conversations];
       const idx = conversations.findIndex(c => c._id === conversationId);
       if (idx !== -1) {
+        // Extract string ID from populated object to match expected type
+        const senderIdStr = typeof message.senderId === 'object' && message.senderId !== null 
+          ? (message.senderId as any)._id || (message.senderId as any).id
+          : message.senderId;
+          
         conversations[idx] = {
           ...conversations[idx],
-          lastMessage: message,
+          lastMessage: {
+            ...message,
+            senderId: senderIdStr
+          },
           updatedAt: message.createdAt,
         } as Conversation;
         // Sort conversations to bring updated to top

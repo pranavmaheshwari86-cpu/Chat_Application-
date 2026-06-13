@@ -84,39 +84,35 @@ export class ConversationsService {
       throw new BadRequestException('Cannot create conversation with yourself');
     }
 
-    // Check if conversation already exists
-    const existing = await this.conversationModel
-      .findOne({
-        type: 'direct',
-        $and: [
-          { 'members.userId': new Types.ObjectId(userId) },
-          { 'members.userId': new Types.ObjectId(participantId) },
-        ],
-        members: { $size: 2 },
-      })
+    // Atomic upsert to prevent duplicate creation race condition
+    const conversation = await this.conversationModel
+      .findOneAndUpdate(
+        {
+          type: 'direct',
+          $and: [
+            { 'members.userId': new Types.ObjectId(userId) },
+            { 'members.userId': new Types.ObjectId(participantId) },
+          ],
+          members: { $size: 2 },
+        },
+        {
+          $setOnInsert: {
+            type: 'direct',
+            members: [
+              { userId: new Types.ObjectId(userId), role: 'owner' },
+              { userId: new Types.ObjectId(participantId), role: 'member' },
+            ],
+            createdBy: new Types.ObjectId(userId),
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      )
       .populate(
         'members.userId',
         'username displayName avatar status lastSeen',
       );
 
-    if (existing) {
-      return existing;
-    }
-
-    const conversation = new this.conversationModel({
-      type: 'direct',
-      members: [
-        { userId: new Types.ObjectId(userId), role: 'owner' },
-        { userId: new Types.ObjectId(participantId), role: 'member' },
-      ],
-      createdBy: new Types.ObjectId(userId),
-    });
-
-    const saved = await conversation.save();
-    return saved.populate(
-      'members.userId',
-      'username displayName avatar status lastSeen',
-    );
+    return conversation;
   }
 
   async createGroup(userId: string, createGroupDto: CreateGroupDto) {

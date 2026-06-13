@@ -53,12 +53,20 @@ export const useCallStore = create<CallState>((set, get) => ({
 
   initiateCall: async (participantId, type) => {
     try {
+      set({ status: 'ringing', remoteUserId: participantId, type });
       // 1. Get media
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: type === 'video',
       });
-      set({ localStream: stream, status: 'ringing', remoteUserId: participantId, type });
+      
+      // Prevent race condition if call was cancelled during getUserMedia
+      if (get().status === 'idle') {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      
+      set({ localStream: stream });
 
       // 2. Call backend to create DB record
       const res = await api.post('/calls', {
@@ -80,12 +88,20 @@ export const useCallStore = create<CallState>((set, get) => ({
     if (!callId) return;
 
     try {
+      set({ status: 'active' });
       // 1. Get media
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: type === 'video',
       });
-      set({ localStream: stream, status: 'active' });
+
+      // Prevent race condition if call was cancelled during getUserMedia
+      if (get().status === 'idle') {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
+      set({ localStream: stream });
 
       // 2. Notify backend
       await api.patch(`/calls/${callId}/accept`);
@@ -260,9 +276,18 @@ export const useCallStore = create<CallState>((set, get) => ({
   },
 
   cleanup: () => {
-    const { localStream, peerConnection } = get();
-    localStream?.getTracks().forEach((track) => track.stop());
-    peerConnection?.close();
+    const { localStream, remoteStream, peerConnection } = get();
+    localStream?.getTracks().forEach((track) => {
+      track.stop();
+    });
+    remoteStream?.getTracks().forEach((track) => {
+      track.stop();
+    });
+    if (peerConnection) {
+      peerConnection.ontrack = null;
+      peerConnection.onicecandidate = null;
+      peerConnection.close();
+    }
     set({
       status: 'idle',
       callId: null,

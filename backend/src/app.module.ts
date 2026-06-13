@@ -35,6 +35,7 @@ import redisConfig from './config/redis.config';
 import jwtConfig from './config/jwt.config';
 import cloudinaryConfig from './config/cloudinary.config';
 import throttleConfig from './config/throttle.config';
+import googleConfig from './config/google.config';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { StructuredLogger } from './common/logger/structured-logger.service';
 
@@ -52,6 +53,7 @@ import { validate } from './config/config.validation';
         jwtConfig,
         cloudinaryConfig,
         throttleConfig,
+        googleConfig,
       ],
       validate,
     }),
@@ -64,7 +66,10 @@ import { validate } from './config/config.validation';
           'database.uri',
           'mongodb://127.0.0.1:27017/flashchat?replicaSet=testset',
         ),
-        autoIndex: true,
+        autoIndex: process.env.NODE_ENV !== 'production',
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        family: 4,
       }),
     }),
 

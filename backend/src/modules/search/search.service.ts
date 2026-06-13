@@ -112,8 +112,13 @@ export class SearchService {
     return messages;
   }
 
+  private escapeRegExp(string: string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+  }
+
   async searchUsers(query: string, currentUserId?: string, limit = 20) {
-    const regex = new RegExp(query, 'i');
+    const escapedQuery = this.escapeRegExp(query);
+    const regex = new RegExp(escapedQuery, 'i');
 
     const filter: any = {
       $or: [{ username: regex }, { displayName: regex }, { headline: regex }],
@@ -136,7 +141,8 @@ export class SearchService {
   }
 
   async searchCommunities(query: string, limit = 20) {
-    const regex = new RegExp(query, 'i');
+    const escapedQuery = this.escapeRegExp(query);
+    const regex = new RegExp(escapedQuery, 'i');
 
     return this.communityModel
       .find({

@@ -19,6 +19,97 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsArray,
+} from 'class-validator';
+
+export class CreateKnowledgeDto {
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+
+  @IsString()
+  @IsOptional()
+  type?: string;
+
+  @IsString()
+  @IsOptional()
+  scope?: string;
+
+  @IsString()
+  @IsOptional()
+  communityId?: string;
+
+  @IsString()
+  @IsOptional()
+  channelId?: string;
+
+  @IsString()
+  @IsOptional()
+  conversationId?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublic?: boolean;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+}
+
+export class UpdateKnowledgeDto {
+  @IsString()
+  @IsOptional()
+  title?: string;
+
+  @IsString()
+  @IsOptional()
+  content?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isPublic?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isPinned?: boolean;
+}
+
+export class AddKnowledgeCollaboratorDto {
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
+}
 
 @ApiTags('Knowledge')
 @ApiBearerAuth()
@@ -34,20 +125,7 @@ export class KnowledgeController {
   })
   async create(
     @Req() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      title: string;
-      content: string;
-      type?: string;
-      scope?: string;
-      communityId?: string;
-      channelId?: string;
-      conversationId?: string;
-      tags?: string[];
-      category?: string;
-      isPublic?: boolean;
-      status?: string;
-    },
+    @Body() body: CreateKnowledgeDto,
   ) {
     const doc = await this.knowledgeService.create(req.user.id, body);
     return { data: doc };
@@ -60,16 +138,7 @@ export class KnowledgeController {
   async update(
     @Param('id') id: string,
     @Req() req: AuthenticatedRequest,
-    @Body()
-    body: {
-      title?: string;
-      content?: string;
-      tags?: string[];
-      category?: string;
-      status?: string;
-      isPublic?: boolean;
-      isPinned?: boolean;
-    },
+    @Body() body: UpdateKnowledgeDto,
   ) {
     const doc = await this.knowledgeService.update(id, req.user.id, body);
     return { data: doc };
@@ -154,7 +223,7 @@ export class KnowledgeController {
   async addCollaborator(
     @Param('id') id: string,
     @Req() req: AuthenticatedRequest,
-    @Body() body: { userId: string },
+    @Body() body: AddKnowledgeCollaboratorDto,
   ) {
     await this.knowledgeService.addCollaborator(id, req.user.id, body.userId);
     return { message: 'Collaborator added' };

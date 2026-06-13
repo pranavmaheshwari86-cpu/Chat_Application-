@@ -8,6 +8,10 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 const SENSITIVE_FIELDS =
   '-passwordHash -refreshTokenHash -passwordResetToken -passwordResetExpires';
 
+/** Fields allowed for public profiles (excludes email, roles, settings, etc). */
+const PUBLIC_FIELDS =
+  'username displayName avatar bio accountType headline skills portfolio socialLinks trustScore badges interests location followersCount followingCount status lastSeen isVerified createdAt';
+
 /** Fields the PATCH /users/me endpoint is allowed to write. */
 const UPDATABLE_FIELDS: (keyof UpdateProfileDto)[] = [
   'displayName',
@@ -39,6 +43,27 @@ export class UsersService {
     const user = await this.userModel
       .findById(userId)
       .select(SENSITIVE_FIELDS)
+      .lean<UserDocument>()
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  /**
+   * Return a limited public profile for a user.
+   */
+  async getPublicProfile(userId: string): Promise<Partial<UserDocument>> {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid user ID');
+    }
+
+    const user = await this.userModel
+      .findById(userId)
+      .select(PUBLIC_FIELDS)
       .lean<UserDocument>()
       .exec();
 
@@ -151,7 +176,7 @@ export class UsersService {
       .find({ $text: { $search: query } }, { score: { $meta: 'textScore' } })
       .sort({ score: { $meta: 'textScore' } })
       .limit(Math.min(limit, 50))
-      .select(SENSITIVE_FIELDS)
+      .select(PUBLIC_FIELDS)
       .lean<UserDocument[]>()
       .exec();
   }

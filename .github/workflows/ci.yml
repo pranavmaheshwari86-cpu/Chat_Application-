@@ -1,10 +1,10 @@
-name: FlashChat CI/CD
+name: FlashChat CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master]
   pull_request:
-    branches: [ main ]
+    branches: [main, master]
 
 jobs:
   test-server:
@@ -18,19 +18,22 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: 'server/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
           
       - name: Install dependencies
-        working-directory: ./server
         run: npm ci
         
-      - name: Lint
-        working-directory: ./server
-        run: npm run lint --if-present
+      - name: Lint Backend
+        run: npm --workspace=backend run lint --if-present
         
-      - name: Build
-        working-directory: ./server
-        run: npm run build
+      - name: Build Shared
+        run: npm run build:shared
+        
+      - name: Verify shared build
+        run: test -d shared/dist || (echo "shared/dist missing" && exit 1)
+
+      - name: Build Backend
+        run: npm run build:backend
 
   test-client:
     name: Test & Build Client
@@ -43,19 +46,22 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: 'client/package-lock.json'
+          cache-dependency-path: 'package-lock.json'
           
       - name: Install dependencies
-        working-directory: ./client
         run: npm ci
         
-      - name: Lint
-        working-directory: ./client
-        run: npm run lint --if-present
+      - name: Lint Frontend
+        run: npm --workspace=frontend run lint --if-present
         
-      - name: Build
-        working-directory: ./client
-        run: npm run build
+      - name: Build Shared
+        run: npm run build:shared
+        
+      - name: Verify shared build
+        run: test -d shared/dist || (echo "shared/dist missing" && exit 1)
+
+      - name: Build Frontend
+        run: npm run build:frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:4000
           NEXT_PUBLIC_SOCKET_URL: http://localhost:4000
@@ -74,7 +80,8 @@ jobs:
       - name: Build Server Image
         uses: docker/build-push-action@v5
         with:
-          context: ./server
+          context: .
+          file: ./backend/Dockerfile
           push: false
           tags: flashchat-server:latest
           cache-from: type=gha
@@ -83,7 +90,8 @@ jobs:
       - name: Build Client Image
         uses: docker/build-push-action@v5
         with:
-          context: ./client
+          context: .
+          file: ./frontend/Dockerfile
           push: false
           tags: flashchat-client:latest
           cache-from: type=gha

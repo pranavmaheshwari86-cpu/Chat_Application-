@@ -25,25 +25,13 @@ export class AttachmentsService {
     file: Express.Multer.File,
     folder: string = 'flashchat/images',
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
-    if (this.configService.get('cloudinary.apiKey') === 'your-api-key') {
-      // Local development fallback
-      const ext = file.originalname.split('.').pop() || 'png';
-      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-      const uploadDir = path.join(process.cwd(), '../client/public/uploads');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      const filePath = path.join(uploadDir, filename);
-      await fs.promises.writeFile(filePath, file.buffer);
-
-      return {
-        secure_url: `/uploads/${filename}`,
-        public_id: filename,
-        width: 800,
-        height: 800,
-        format: ext,
-        bytes: file.buffer.length,
-      } as unknown as UploadApiResponse;
+    if (
+      this.configService.get('cloudinary.apiKey') === 'your-api-key' ||
+      !this.configService.get('cloudinary.apiKey')
+    ) {
+      throw new Error(
+        'Cloudinary is not configured. Local uploads are disabled for security.',
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -70,22 +58,13 @@ export class AttachmentsService {
     file: Express.Multer.File,
     folder: string = 'flashchat/audio',
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
-    if (this.configService.get('cloudinary.apiKey') === 'your-api-key') {
-      const ext = 'webm';
-      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-      const uploadDir = path.join(process.cwd(), '../client/public/uploads');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      const filePath = path.join(uploadDir, filename);
-      await fs.promises.writeFile(filePath, file.buffer);
-
-      return {
-        secure_url: `/uploads/${filename}`,
-        public_id: filename,
-        format: ext,
-        bytes: file.buffer.length,
-      } as unknown as UploadApiResponse;
+    if (
+      this.configService.get('cloudinary.apiKey') === 'your-api-key' ||
+      !this.configService.get('cloudinary.apiKey')
+    ) {
+      throw new Error(
+        'Cloudinary is not configured. Local uploads are disabled for security.',
+      );
     }
 
     return new Promise((resolve, reject) => {
@@ -112,23 +91,13 @@ export class AttachmentsService {
     file: Express.Multer.File,
     folder: string = 'flashchat/files',
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
-    if (this.configService.get('cloudinary.apiKey') === 'your-api-key') {
-      // Local development fallback
-      const ext = file.originalname.split('.').pop() || 'bin';
-      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-      const uploadDir = path.join(process.cwd(), '../client/public/uploads');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-      }
-      const filePath = path.join(uploadDir, filename);
-      await fs.promises.writeFile(filePath, file.buffer);
-
-      return {
-        secure_url: `/uploads/${filename}`,
-        public_id: filename,
-        format: ext,
-        bytes: file.buffer.length,
-      } as unknown as UploadApiResponse;
+    if (
+      this.configService.get('cloudinary.apiKey') === 'your-api-key' ||
+      !this.configService.get('cloudinary.apiKey')
+    ) {
+      throw new Error(
+        'Cloudinary is not configured. Local uploads are disabled for security.',
+      );
     }
 
     return new Promise((resolve, reject) => {

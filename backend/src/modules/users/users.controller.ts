@@ -70,7 +70,7 @@ export class UsersController {
   @Get(':id')
   @ApiOperation({ summary: 'Get user profile by ID' })
   async getUserProfile(@Param('id') id: string) {
-    return this.usersService.getFullProfile(id);
+    return this.usersService.getPublicProfile(id);
   }
 
   /**

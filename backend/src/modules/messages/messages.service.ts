@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   BadRequestException,
   OnModuleInit,
+  forwardRef,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel, InjectConnection } from '@nestjs/mongoose';
 import { Model, Types, Connection } from 'mongoose';
@@ -32,6 +34,7 @@ export class MessagesService implements OnModuleInit {
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     @InjectModel(Conversation.name)
     private conversationModel: Model<ConversationDocument>,
+    @Inject(forwardRef(() => ChatGateway))
     private chatGateway: ChatGateway,
     @InjectConnection() private connection: Connection,
   ) {}
@@ -40,7 +43,6 @@ export class MessagesService implements OnModuleInit {
 
   // Wire this service into ChatGateway to resolve circular dependency
   onModuleInit() {
-    this.chatGateway.setMessagesService(this);
     if (process.env.GEMINI_API_KEY) {
       try {
         this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -65,20 +67,62 @@ export class MessagesService implements OnModuleInit {
     }
   }
 
+  private isPrivateUrl(urlString: string): boolean {
+    try {
+      const parsed = new URL(urlString);
+      const hostname = parsed.hostname.toLowerCase();
+
+      // Block non-http protocols
+      if (!['http:', 'https:'].includes(parsed.protocol)) return true;
+
+      // Block localhost and loopback
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '::1' ||
+        hostname === '0.0.0.0'
+      )
+        return true;
+
+      // Block private IP ranges
+      const parts = hostname.split('.').map(Number);
+      if (parts.length === 4 && parts.every((p) => !isNaN(p))) {
+        if (parts[0] === 10) return true; // 10.0.0.0/8
+        if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+        if (parts[0] === 192 && parts[1] === 168) return true; // 192.168.0.0/16
+        if (parts[0] === 169 && parts[1] === 254) return true; // Link-local / cloud metadata
+      }
+
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
   async getLinkPreview(url: string) {
     if (!url) {
       throw new BadRequestException('URL is required');
     }
 
     try {
-      new URL(url); // Validate URL
+      new URL(url); // Validate URL format
+    } catch {
+      throw new BadRequestException('Invalid URL format');
+    }
 
+    // SSRF protection: block private/internal URLs
+    if (this.isPrivateUrl(url)) {
+      throw new BadRequestException('URL not allowed');
+    }
+
+    try {
       const response = await axios.get(url, {
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
         timeout: 5000,
+        maxRedirects: 3,
       });
 
       const html = response.data as string;

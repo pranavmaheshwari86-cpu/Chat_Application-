@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { FramerMotionProvider } from "@/components/providers/FramerMotionProvider";
 import { WebVitals } from "@/components/providers/WebVitals";
+import { ErrorBoundary } from "@/components/providers/ErrorBoundary";
 import "./globals.css";
 
 const inter = Inter({
@@ -53,10 +54,12 @@ export default function RootLayout({
         className={`${inter.variable} ${playfair.variable} ${manrope.variable} ${geist.variable} antialiased selection:bg-secondary selection:text-on-secondary`}
       >
         <FramerMotionProvider>
-          <AuthProvider>
-            <WebVitals />
-            {children}
-          </AuthProvider>
+          <ErrorBoundary>
+            <AuthProvider>
+              <WebVitals />
+              {children}
+            </AuthProvider>
+          </ErrorBoundary>
         </FramerMotionProvider>
         <Toaster
           theme="dark"

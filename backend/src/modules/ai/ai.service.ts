@@ -20,17 +20,20 @@ export class AiService {
     const groqKey = this.configService.get<string>('GROQ_API_KEY');
     if (groqKey) {
       try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${groqKey}`,
-            'Content-Type': 'application/json',
+        const response = await fetch(
+          'https://api.groq.com/openai/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${groqKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages,
+            }),
           },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages,
-          }),
-        });
+        );
         if (response.ok) {
           const data = await response.json();
           return data.choices[0].message.content;
@@ -38,21 +41,31 @@ export class AiService {
           this.logger.warn(`Groq failed: ${await response.text()}`);
         }
       } catch (error) {
-        this.logger.error(`Groq generation failed: ${(error as Error).message}`);
+        this.logger.error(
+          `Groq generation failed: ${(error as Error).message}`,
+        );
       }
     }
 
     if (this.ai) {
       try {
-        const prompt = messages.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n') + '\n\nASSISTANT:';
+        const prompt =
+          messages
+            .map(
+              (m: any) =>
+                `${String(m.role).toUpperCase()}: ${String(m.content)}`,
+            )
+            .join('\n\n') + '\n\nASSISTANT:';
         try {
           const response = await this.ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
           });
-          if (response.text) return response.text;
-        } catch (e1) {
-          this.logger.warn(`Gemini 2.5 failed, falling back to 1.5: ${(e1 as Error).message}`);
+          if (response.text) return String(response.text);
+        } catch (e1: any) {
+          this.logger.warn(
+            `Gemini 2.5 failed, falling back to 1.5: ${String(e1.message || 'unknown error')}`,
+          );
           const responseFallback = await this.ai.models.generateContent({
             model: 'gemini-1.5-flash',
             contents: prompt,
@@ -60,7 +73,9 @@ export class AiService {
           if (responseFallback.text) return responseFallback.text;
         }
       } catch (error) {
-        this.logger.error(`All Gemini generation failed: ${(error as Error).message}`);
+        this.logger.error(
+          `All Gemini generation failed: ${(error as Error).message}`,
+        );
       }
     }
 
@@ -196,16 +211,23 @@ export class AiService {
   async generateResponse(input: string | any[], user?: any): Promise<string> {
     const groqKey = this.configService.get<string>('GROQ_API_KEY');
     const apiKey = this.configService.get<string>('OPENROUTER_API_KEY');
-    if (!this.ai && !groqKey && (!apiKey || apiKey === 'replace_with_your_openrouter_key')) {
+    if (
+      !this.ai &&
+      !groqKey &&
+      (!apiKey || apiKey === 'replace_with_your_openrouter_key')
+    ) {
       return 'Hello! I am your FlashChat AI Assistant (Mock Mode). To get real AI responses, please configure your API keys in the server/.env file.';
     }
 
     let messages = [];
 
     // Add strong system prompt
-    const currentTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata', dateStyle: 'full', timeStyle: 'short' });
-    let systemPrompt =
-      `You are FlashChat AI, the official, highly intelligent and friendly assistant built directly into the FlashChat real-time messaging application. Keep your answers concise, helpful, and natural. The current date and time is ${currentTime}.
+    const currentTime = new Date().toLocaleString('en-US', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'full',
+      timeStyle: 'short',
+    });
+    let systemPrompt = `You are FlashChat AI, the official, highly intelligent and friendly assistant built directly into the FlashChat real-time messaging application. Keep your answers concise, helpful, and natural. The current date and time is ${currentTime}.
 
 **ABOUT FLASHCHAT:**
 FlashChat is a modern, real-time messaging platform. You know everything about how it works.

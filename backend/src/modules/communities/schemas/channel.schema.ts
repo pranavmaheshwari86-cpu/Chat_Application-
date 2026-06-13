@@ -38,3 +38,4 @@ export class Channel {
 
 export const ChannelSchema = SchemaFactory.createForClass(Channel);
 ChannelSchema.index({ communityId: 1 });
+ChannelSchema.index({ parentId: 1 }, { sparse: true });

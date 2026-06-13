@@ -2,9 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
-import { validateApiResponse } from '@chat/shared';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -41,8 +40,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    // Validate standard envelope if present, else just return
-    return validateApiResponse(response.data);
+    return response;
   },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };

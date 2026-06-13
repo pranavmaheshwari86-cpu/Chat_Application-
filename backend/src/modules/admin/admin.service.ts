@@ -50,12 +50,12 @@ export class AdminService {
   }
 
   async blockUser(userId: string) {
-    // In a real app, we might add an 'isBanned' or 'isActive' flag to user.
-    // For now we can add an isBanned field or just use status.
-    return this.userModel.findByIdAndUpdate(
-      userId,
-      { status: 'offline' },
-      { new: true },
-    );
+    return this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { status: 'offline', isBanned: true },
+        { new: true },
+      )
+      .select('-passwordHash');
   }
 }

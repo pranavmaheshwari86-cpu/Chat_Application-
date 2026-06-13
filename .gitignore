@@ -23,6 +23,9 @@ shared/dist/
 archive-unused/
 Redis/
 package-usage-analysis.json
+frontend/public/uploads/
+backend/public/uploads/
+client/public/uploads/
 
 # Env
 .env

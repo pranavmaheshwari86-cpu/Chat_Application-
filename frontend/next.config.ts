@@ -4,6 +4,7 @@ import withPWAInit from "@ducanh2912/next-pwa";
 const nextConfig = {
   devIndicators: false,
   output: "standalone",
+  turbopack: {},
   transpilePackages: ['@chat/shared'],
   images: {
     remotePatterns: [
@@ -26,6 +27,13 @@ const nextConfig = {
     ],
   },
   async headers() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || apiUrl.replace('http', 'ws');
+    
+    // Extract base origins for CSP
+    const apiOrigin = new URL(apiUrl).origin;
+    const socketOrigin = new URL(socketUrl).origin;
+
     return [
       {
         source: "/(.*)",
@@ -48,7 +56,7 @@ const nextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://res.cloudinary.com https://lh3.googleusercontent.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' http://localhost:3001 ws://localhost:3001 wss://localhost:3001 https://res.cloudinary.com;",
+            value: `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' blob: data: https://res.cloudinary.com https://lh3.googleusercontent.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ${apiOrigin} ${socketOrigin} https://res.cloudinary.com;`,
           },
         ],
       },

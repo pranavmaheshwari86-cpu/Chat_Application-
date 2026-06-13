@@ -56,5 +56,5 @@ export class Conversation {
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 
-ConversationSchema.index({ 'members.userId': 1 });
+ConversationSchema.index({ 'members.userId': 1, updatedAt: -1 });
 ConversationSchema.index({ updatedAt: -1 });

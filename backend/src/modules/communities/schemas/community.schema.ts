@@ -49,3 +49,4 @@ export class Community {
 
 export const CommunitySchema = SchemaFactory.createForClass(Community);
 CommunitySchema.index({ name: 'text', description: 'text' });
+CommunitySchema.index({ ownerId: 1 });

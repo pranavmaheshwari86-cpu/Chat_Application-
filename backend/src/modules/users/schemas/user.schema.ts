@@ -21,7 +21,7 @@ export class User {
   @Prop({ required: true, trim: true, maxlength: 50 })
   displayName: string;
 
-  @Prop({ default: null })
+  @Prop({ default: null, select: false })
   passwordHash?: string;
 
   @Prop()
@@ -124,6 +124,9 @@ export class User {
   @Prop({ default: false })
   isVerified: boolean;
 
+  @Prop({ default: false })
+  isBanned: boolean;
+
   @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], default: [] })
   blockedUsers: Types.ObjectId[];
 
@@ -157,16 +160,17 @@ export class User {
   })
   settings: Record<string, any>;
 
-  @Prop()
+  @Prop({ select: false })
   refreshTokenHash?: string;
 
-  @Prop()
+  @Prop({ select: false })
   passwordResetToken?: string;
 
-  @Prop()
+  @Prop({ select: false })
   passwordResetExpires?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ username: 'text', displayName: 'text' });
+UserSchema.index({ provider: 1, providerId: 1 }, { sparse: true });

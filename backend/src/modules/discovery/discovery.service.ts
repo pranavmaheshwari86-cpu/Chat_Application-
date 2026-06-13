@@ -90,11 +90,16 @@ export class DiscoveryService {
       .exec();
   }
 
+  private escapeRegExp(string: string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   /**
    * Trending search — users and communities matching a query.
    */
   async globalSearch(query: string, limit = 20) {
-    const regex = new RegExp(query, 'i');
+    const escapedQuery = this.escapeRegExp(query);
+    const regex = new RegExp(escapedQuery, 'i');
 
     const [users, communities] = await Promise.all([
       this.userModel

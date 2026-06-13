@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { AuthenticatedRequest } from '@chat/shared';
 import type { AuthUser, JwtPayload } from '@chat/shared';
 import {
@@ -28,7 +29,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Post('register')
@@ -84,9 +88,19 @@ export class AuthController {
     const result = await this.authService.googleLogin(req.user);
     this.setRefreshTokenCookie(res, result.refreshToken);
 
-    // Redirect to frontend with access token in URL fragment or just rely on cookie
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-    res.redirect(`${clientUrl}/auth-callback?token=${result.accessToken}`);
+    // Set access token as a short-lived httpOnly cookie instead of leaking in URL
+    const clientUrl = this.configService.get<string>(
+      'CLIENT_URL',
+      'http://localhost:3000',
+    );
+    res.cookie('accessToken', result.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      path: '/',
+      maxAge: 60 * 1000, // 60 seconds — just enough for frontend to read and clear
+    });
+    res.redirect(`${clientUrl}/auth-callback`);
   }
 
   @Public()
@@ -133,11 +147,12 @@ export class AuthController {
   private setRefreshTokenCookie(res: Response, refreshToken: string) {
     const expiry = process.env.JWT_REFRESH_EXPIRY || '7d';
     const days = parseInt(expiry.replace('d', ''));
+    const isProduction = process.env.NODE_ENV === 'production';
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
       path: '/',
       maxAge: days * 24 * 60 * 60 * 1000,
     });
