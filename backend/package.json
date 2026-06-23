@@ -22,7 +22,7 @@
     "db:sync-indexes:prod": "node dist/scripts/sync-indexes.js"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "@chat/shared": "*",
