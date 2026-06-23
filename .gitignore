@@ -27,7 +27,7 @@ backend/mongodb-data/
 backend/dist/
 shared/dist/
 archive-unused/
-Redis/
+/Redis/
 package-usage-analysis.json
 frontend/public/uploads/
 backend/public/uploads/
