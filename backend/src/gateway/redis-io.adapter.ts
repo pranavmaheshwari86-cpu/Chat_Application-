@@ -77,10 +77,12 @@ export class RedisIoAdapter extends IoAdapter implements OnModuleDestroy {
       'http://localhost:3000',
     );
 
+    const clientUrls = clientUrl.split(',').map(url => url.trim());
+
     const server = super.createIOServer(port, {
       ...options,
       cors: {
-        origin: [clientUrl],
+        origin: clientUrls,
         credentials: true,
       },
     });

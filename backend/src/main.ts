@@ -27,9 +27,11 @@ async function bootstrap() {
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     const isProduction = nodeEnv === 'production';
 
+    const clientUrls = clientUrl.split(',').map(url => url.trim());
+
     // CORS — strict allowlist, not origin: true
     app.enableCors({
-      origin: [clientUrl],
+      origin: clientUrls,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
