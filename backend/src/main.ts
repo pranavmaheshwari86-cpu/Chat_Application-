@@ -111,24 +111,19 @@ async function bootstrap() {
 
     // WebSocket adapter with Redis
     const redisIoAdapter = new RedisIoAdapter(app, configService);
+    let redisConnected = false;
     try {
       await redisIoAdapter.connectToRedis();
+      redisConnected = true;
     } catch {
-      if (!isProduction) {
-        console.warn(
-          `⚠️  Redis not available. Running without multi-server WebSocket support.`,
-        );
-      } else {
-        console.error(
-          `❌ Redis is required in production but connection failed.`,
-        );
-        process.exit(1);
-      }
+      console.warn(
+        `⚠️  Redis not available. Running without multi-server WebSocket support.`,
+      );
     }
 
-    // Expose Redis health status to the app for other services
-    // (app as any).redisAvailable = redisConnected;
-    app.useWebSocketAdapter(redisIoAdapter);
+    if (redisConnected) {
+      app.useWebSocketAdapter(redisIoAdapter);
+    }
 
     // Swagger — disabled in production
     if (!isProduction) {
