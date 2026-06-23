@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
+import { Conversation, ConversationMember } from '@chat/shared';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -16,8 +17,8 @@ export function Sidebar() {
   const { conversations } = useChatStore();
 
   const currentUserId = user?._id;
-  const totalUnreadCount = conversations.reduce((total, conv) => {
-    const member = conv.members?.find(m => {
+  const totalUnreadCount = conversations.reduce((total: number, conv: Conversation) => {
+    const member = conv.members?.find((m: ConversationMember) => {
       const mId = typeof m.userId === 'object' && m.userId !== null ? m.userId._id : m.userId;
       return String(mId) === String(currentUserId);
     });
