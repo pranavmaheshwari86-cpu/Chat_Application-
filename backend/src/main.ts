@@ -11,7 +11,7 @@ import { AppModule } from './app.module';
 import { RedisIoAdapter } from './gateway/redis-io.adapter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
-import { Logger, LoggerErrorInterceptor } from 'nestjs-pino';
+import { LoggerErrorInterceptor } from 'nestjs-pino';
 
 async function bootstrap() {
   try {
@@ -27,25 +27,6 @@ async function bootstrap() {
     const nodeEnv = configService.get<string>('NODE_ENV', 'development');
     const isProduction = nodeEnv === 'production';
 
-    // Sync indexes in production (autoIndex is disabled by app.module.ts)
-    if (isProduction) {
-      try {
-        const connection = app.get<Connection>(getConnectionToken());
-        const modelNames = connection.modelNames();
-        for (const modelName of modelNames) {
-          const model = connection.model(modelName);
-          await model.syncIndexes();
-        }
-        app
-          .get(Logger)
-          .log(`Indexes synchronized for ${modelNames.length} models`);
-      } catch (err) {
-        app
-          .get(Logger)
-          .warn(`Index sync failed (non-fatal): ${(err as Error).message}`);
-      }
-    }
-
     // CORS — strict allowlist, not origin: true
     app.enableCors({
       origin: [clientUrl],
@@ -53,7 +34,8 @@ async function bootstrap() {
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     });
-    // Security headers — production-safe Helmet configuration
+
+    // Security headers
     if (isProduction) {
       app.use(
         helmet({
@@ -72,12 +54,11 @@ async function bootstrap() {
               fontSrc: ["'self'", 'https://fonts.gstatic.com'],
             },
           },
-          crossOriginEmbedderPolicy: false, // Prevents blocking of third-party media like Cloudinary/Google
-          crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allows API consumption from frontend domain
+          crossOriginEmbedderPolicy: false,
+          crossOriginResourcePolicy: { policy: 'cross-origin' },
         }),
       );
     } else {
-      // Development — relaxed for cross-origin dev servers
       app.use(
         helmet({
           contentSecurityPolicy: false,
@@ -109,7 +90,7 @@ async function bootstrap() {
     // Global interceptors
     app.useGlobalInterceptors(new TransformInterceptor());
 
-    // WebSocket adapter with Redis
+    // WebSocket adapter with Redis (optional)
     const redisIoAdapter = new RedisIoAdapter(app, configService);
     let redisConnected = false;
     try {
@@ -138,9 +119,26 @@ async function bootstrap() {
       SwaggerModule.setup('api/docs', app, document);
     }
 
+    // START LISTENING — this must happen BEFORE any slow operations
+    // so Railway's healthcheck can reach /api/health immediately
     await app.listen(port, '0.0.0.0');
     console.log(`🚀 Server listening on 0.0.0.0:${port} (${nodeEnv})`);
     console.log(`📡 Health check available at http://0.0.0.0:${port}/api/health`);
+
+    // Sync indexes AFTER server is listening (non-blocking for healthcheck)
+    if (isProduction) {
+      try {
+        const connection = app.get<Connection>(getConnectionToken());
+        const modelNames = connection.modelNames();
+        for (const modelName of modelNames) {
+          const model = connection.model(modelName);
+          await model.syncIndexes();
+        }
+        console.log(`✅ Indexes synchronized for ${modelNames.length} models`);
+      } catch (err) {
+        console.warn(`⚠️  Index sync failed (non-fatal): ${(err as Error).message}`);
+      }
+    }
   } catch (error: unknown) {
     const err = error as Error;
     console.error(`❌ Failed to start the server: ${err.message}`, err.stack);

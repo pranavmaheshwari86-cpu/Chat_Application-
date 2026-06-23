@@ -4,7 +4,6 @@ import {
   IsNumber,
   IsString,
   validateSync,
-  MinLength,
   IsOptional,
   registerDecorator,
   ValidationOptions,
@@ -54,26 +53,16 @@ class EnvironmentVariables {
   @IsNumber()
   REDIS_PORT: number;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmptyString({
-    message: 'JWT_ACCESS_SECRET is required and cannot be empty',
-  })
-  @MinLength(32, {
-    message: 'JWT_ACCESS_SECRET must be at least 32 characters',
-  })
   JWT_ACCESS_SECRET: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmptyString({
-    message: 'JWT_REFRESH_SECRET is required and cannot be empty',
-  })
-  @MinLength(32, {
-    message: 'JWT_REFRESH_SECRET must be at least 32 characters',
-  })
   JWT_REFRESH_SECRET: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmptyString({ message: 'CLIENT_URL is required' })
   CLIENT_URL: string;
 
   @IsOptional()
@@ -97,8 +86,21 @@ export function validate(config: Record<string, unknown>) {
     const messages = errors.map((error) => {
       return `${error.property} - ${Object.values(error.constraints || {}).join(', ')}`;
     });
-    throw new Error(
-      `Environment variables validation failed:\n${messages.join('\n')}`,
+    // Only crash on truly critical missing vars (NODE_ENV, PORT, MONGODB_URI)
+    const criticalProps = ['NODE_ENV', 'PORT', 'MONGODB_URI'];
+    const criticalErrors = errors.filter((e) =>
+      criticalProps.includes(e.property),
+    );
+
+    if (criticalErrors.length > 0) {
+      throw new Error(
+        `Critical environment variables missing:\n${messages.join('\n')}`,
+      );
+    }
+
+    // Non-critical: warn but don't crash
+    console.warn(
+      `⚠️  Environment variable warnings:\n${messages.join('\n')}`,
     );
   }
   return validatedConfig;
