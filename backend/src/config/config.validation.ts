@@ -86,8 +86,8 @@ export function validate(config: Record<string, unknown>) {
     const messages = errors.map((error) => {
       return `${error.property} - ${Object.values(error.constraints || {}).join(', ')}`;
     });
-    // Only crash on truly critical missing vars (NODE_ENV, PORT, MONGODB_URI)
-    const criticalProps = ['NODE_ENV', 'PORT', 'MONGODB_URI'];
+    // Only crash on truly critical missing vars (NODE_ENV, PORT)
+    const criticalProps = ['NODE_ENV', 'PORT'];
     const criticalErrors = errors.filter((e) =>
       criticalProps.includes(e.property),
     );

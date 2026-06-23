@@ -119,11 +119,10 @@ async function bootstrap() {
       SwaggerModule.setup('api/docs', app, document);
     }
 
-    // START LISTENING — this must happen BEFORE any slow operations
-    // so Railway's healthcheck can reach /api/health immediately
-    await app.listen(port, '0.0.0.0');
-    console.log(`🚀 Server listening on 0.0.0.0:${port} (${nodeEnv})`);
-    console.log(`📡 Health check available at http://0.0.0.0:${port}/api/health`);
+    // Start listening BEFORE running heavy index syncs to ensure Railway Healthcheck passes
+    await app.listen(port);
+    console.log(`🚀 Server listening on port ${port} (${nodeEnv})`);
+    console.log(`📡 Health check available at http://localhost:${port}/api/health`);
 
     // Sync indexes AFTER server is listening (non-blocking for healthcheck)
     if (isProduction) {
