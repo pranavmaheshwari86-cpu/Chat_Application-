@@ -46,10 +46,13 @@ export default function AiChatPage() {
         content: m.content
       }));
       const res = await api.post("/ai/generate", { messages: messagesToSend });
+      const payload = res.data?.data || res.data;
+      const responseText = payload?.response || payload;
+
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: res.data?.response || res.data || "I couldn't process that request.",
+        content: typeof responseText === 'string' ? responseText : "I couldn't process that request.",
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
@@ -81,35 +84,6 @@ export default function AiChatPage() {
             </p>
           </div>
         </div>
-      </div>
-
-      {/* Input Area */}
-      <div className="p-6 pb-4 bg-background/50 backdrop-blur-sm shrink-0 z-10 border-b border-surface-variant/30 shadow-sm">
-        <div className="max-w-4xl mx-auto relative group">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="Ask AI or search anything..."
-            className="w-full bg-surface-container-low border border-border/50 text-on-surface rounded-2xl px-6 py-4 pr-16 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none min-h-[60px] max-h-[200px] shadow-lg transition-all duration-300 placeholder:text-on-surface-variant/50"
-            rows={1}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="absolute right-3 bottom-3 p-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary/20"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
-        <p className="text-center text-xs text-on-surface-variant mt-3 opacity-60">
-          AI can make mistakes. Consider verifying important information.
-        </p>
       </div>
 
       {/* Messages Area */}
@@ -146,7 +120,7 @@ export default function AiChatPage() {
               </div>
               <div
                 className={cn(
-                  "p-4 rounded-2xl text-[15px] leading-relaxed shadow-sm",
+                  "p-4 rounded-2xl text-base leading-relaxed shadow-sm",
                   msg.role === "user"
                     ? "bg-primary text-on-primary rounded-tr-sm"
                     : "glass-panel text-on-surface rounded-tl-sm border border-white/5"
@@ -175,6 +149,35 @@ export default function AiChatPage() {
           </motion.div>
         )}
         <div ref={messagesEndRef} className="h-4" />
+      </div>
+
+      {/* Input Area */}
+      <div className="p-6 pb-4 bg-background/50 backdrop-blur-sm shrink-0 z-10 border-t border-surface-variant/30 shadow-sm">
+        <div className="max-w-4xl mx-auto relative group">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder="Ask AI or search anything..."
+            className="w-full bg-surface-container-low border border-border/50 text-on-surface rounded-2xl px-6 py-4 pr-16 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent resize-none min-h-[60px] max-h-[200px] shadow-lg transition-all duration-300 placeholder:text-on-surface-variant/50"
+            rows={1}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className="absolute right-3 bottom-3 p-2 rounded-xl bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-primary/20"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="text-center text-xs text-on-surface-variant mt-3 opacity-60">
+          AI can make mistakes. Consider verifying important information.
+        </p>
       </div>
     </div>
   );

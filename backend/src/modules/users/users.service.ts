@@ -35,7 +35,7 @@ export class UsersService {
   /**
    * Return the full public profile for a user (no sensitive hashes).
    */
-  async getFullProfile(userId: string): Promise<UserDocument> {
+  async getFullProfile(userId: string): Promise<Record<string, any>> {
     if (!Types.ObjectId.isValid(userId)) {
       throw new NotFoundException('Invalid user ID');
     }
@@ -43,7 +43,7 @@ export class UsersService {
     const user = await this.userModel
       .findById(userId)
       .select(SENSITIVE_FIELDS)
-      .lean<UserDocument>()
+      .lean<Record<string, any>>()
       .exec();
 
     if (!user) {
@@ -56,7 +56,7 @@ export class UsersService {
   /**
    * Return a limited public profile for a user.
    */
-  async getPublicProfile(userId: string): Promise<Partial<UserDocument>> {
+  async getPublicProfile(userId: string): Promise<Record<string, any>> {
     if (!Types.ObjectId.isValid(userId)) {
       throw new NotFoundException('Invalid user ID');
     }
@@ -64,7 +64,7 @@ export class UsersService {
     const user = await this.userModel
       .findById(userId)
       .select(PUBLIC_FIELDS)
-      .lean<UserDocument>()
+      .lean<Record<string, any>>()
       .exec();
 
     if (!user) {
@@ -80,7 +80,7 @@ export class UsersService {
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,
-  ): Promise<UserDocument> {
+  ): Promise<Record<string, any>> {
     const sanitised: Record<string, any> = {};
 
     for (const key of UPDATABLE_FIELDS) {
@@ -96,7 +96,7 @@ export class UsersService {
         { new: true, runValidators: true },
       )
       .select(SENSITIVE_FIELDS)
-      .lean<UserDocument>()
+      .lean<Record<string, any>>()
       .exec();
 
     if (!user) {
@@ -137,7 +137,7 @@ export class UsersService {
   async awardBadge(
     userId: string,
     badge: { type: string; label: string; awardedAt?: Date },
-  ): Promise<UserDocument> {
+  ): Promise<Record<string, any>> {
     const user = await this.userModel
       .findByIdAndUpdate(
         userId,
@@ -153,7 +153,7 @@ export class UsersService {
         { new: true, runValidators: true },
       )
       .select(SENSITIVE_FIELDS)
-      .lean<UserDocument>()
+      .lean<Record<string, any>>()
       .exec();
 
     if (!user) {
@@ -167,7 +167,7 @@ export class UsersService {
    * Full-text search across username and displayName.
    * Uses the text index already defined on the schema.
    */
-  async searchUsers(query: string, limit = 20): Promise<UserDocument[]> {
+  async searchUsers(query: string, limit = 20): Promise<Record<string, any>[]> {
     if (!query || !query.trim()) {
       return [];
     }
@@ -177,7 +177,7 @@ export class UsersService {
       .sort({ score: { $meta: 'textScore' } })
       .limit(Math.min(limit, 50))
       .select(PUBLIC_FIELDS)
-      .lean<UserDocument[]>()
+      .lean<Record<string, any>[]>()
       .exec();
   }
 
@@ -189,5 +189,19 @@ export class UsersService {
       return null;
     }
     return this.userModel.findById(userId).exec();
+  }
+
+  /**
+   * Find a single user by ID and return as plain object (no Mongoose document).
+   */
+  async findByIdLean(userId: string): Promise<Record<string, any> | null> {
+    if (!Types.ObjectId.isValid(userId)) {
+      return null;
+    }
+    return this.userModel
+      .findById(userId)
+      .select(SENSITIVE_FIELDS)
+      .lean<Record<string, any>>()
+      .exec();
   }
 }

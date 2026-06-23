@@ -1,7 +1,12 @@
 import { create } from 'zustand';
-import { Message, Conversation } from '@chat/shared';
+import { Message, Conversation, Reaction } from '@chat/shared';
 
-export type { Message, Conversation };
+export type { Message, Conversation, Reaction };
+
+// Configuration constants
+const MAX_CACHED_CONVERSATIONS = 20;
+const MAX_MESSAGES_PER_CONVERSATION = 500;
+const _MAX_TYPING_USERS_PER_CONVERSATION = 10;
 
 interface ChatState {
   conversations: Conversation[];
@@ -10,6 +15,7 @@ interface ChatState {
   isLoadingMessages: Record<string, boolean>;
   messageErrors: Record<string, string>;
   onlineUsers: string[];
+  typingUsers: Record<string, { userId: string; username: string }[]>; // conversationId -> users typing
   
   setConversations: (conversations: Conversation[]) => void;
   addConversation: (conversation: Conversation) => void;
@@ -21,12 +27,18 @@ interface ChatState {
   deleteMessage: (messageId: string, conversationId: string) => void;
   
   updateConversationLastMessage: (conversationId: string, message: Message) => void;
+  clearUnreadCount: (conversationId: string) => void;
   
   setIsLoadingMessages: (conversationId: string, isLoading: boolean) => void;
   setMessageError: (conversationId: string, error: string | null) => void;
   
   setOnlineUsers: (userIds: string[]) => void;
   setOnlineStatus: (userId: string, isOnline: boolean) => void;
+  
+  setTypingActive: (conversationId: string, userId: string, username: string) => void;
+  setTypingStopped: (conversationId: string, userId: string) => void;
+  updateMessageReadStatus: (conversationId: string, userId: string, readAt: Date) => void;
+  updateMessageReactions: (conversationId: string, messageId: string, reactions: Reaction[]) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -36,15 +48,20 @@ export const useChatStore = create<ChatState>((set) => ({
   isLoadingMessages: {},
   messageErrors: {},
   onlineUsers: [],
+  typingUsers: {},
   
   setConversations: (fetchedConversations) => set((state) => {
+    // Filter out malformed conversations (missing _id or members)
+    const validConversations = fetchedConversations.filter(
+      (c) => c && c._id && Array.isArray(c.members)
+    );
     // Preserve the active conversation if it's missing from the fetched list
-    let updatedConversations = [...fetchedConversations];
+    let updatedConversations = [...validConversations];
     if (state.activeConversationId) {
-      const activeExistsInFetched = fetchedConversations.some(c => c._id === state.activeConversationId);
+      const activeExistsInFetched = validConversations.some(c => c._id === state.activeConversationId);
       if (!activeExistsInFetched) {
         const activeConv = state.conversations.find(c => c._id === state.activeConversationId);
-        if (activeConv) {
+        if (activeConv && activeConv.members) {
           updatedConversations = [activeConv, ...updatedConversations];
         }
       }
@@ -66,12 +83,12 @@ export const useChatStore = create<ChatState>((set) => ({
       const newMessagesDict = { ...state.messages };
       // Prevent memory leak by limiting cached conversations
       const keys = Object.keys(newMessagesDict);
-      if (keys.length > 20 && !newMessagesDict[conversationId]) {
+      if (keys.length >= MAX_CACHED_CONVERSATIONS && !newMessagesDict[conversationId]) {
         const toRemove = keys.find(k => k !== state.activeConversationId);
         if (toRemove) delete newMessagesDict[toRemove];
       }
       
-      newMessagesDict[conversationId] = messages.slice(0, 500); // Cap at 500 messages per conversation
+      newMessagesDict[conversationId] = messages.slice(0, MAX_MESSAGES_PER_CONVERSATION);
       return { messages: newMessagesDict };
     }),
     
@@ -83,7 +100,7 @@ export const useChatStore = create<ChatState>((set) => ({
       // Prevent duplicates
       if (filtered.some(m => m._id === message._id)) return state;
       
-      const newMessages = [message, ...filtered].slice(0, 500); // Limit memory leak
+      const newMessages = [message, ...filtered].slice(0, MAX_MESSAGES_PER_CONVERSATION);
       
       return {
         messages: {
@@ -124,19 +141,40 @@ export const useChatStore = create<ChatState>((set) => ({
       if (idx !== -1) {
         // Extract string ID from populated object to match expected type
         const senderIdStr = typeof message.senderId === 'object' && message.senderId !== null 
-          ? (message.senderId as any)._id || (message.senderId as any).id
+          ? (message.senderId as { _id?: string; id?: string; displayName?: string; username?: string })._id || 
+            (message.senderId as { _id?: string; id?: string; displayName?: string; username?: string }).id
           : message.senderId;
-          
+        
         conversations[idx] = {
           ...conversations[idx],
           lastMessage: {
             ...message,
-            senderId: senderIdStr
+            senderId: senderIdStr,
+            senderName: typeof message.senderId === 'object' && message.senderId !== null 
+              ? (message.senderId as { displayName?: string; username?: string }).displayName || 
+                (message.senderId as { displayName?: string; username?: string }).username
+              : undefined,
           },
           updatedAt: message.createdAt,
         } as Conversation;
-        // Sort conversations to bring updated to top
-        conversations.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        // Sort conversations to bring updated to top (only if changed)
+        const needsSort = idx !== 0;
+        if (needsSort) {
+          conversations.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        }
+      }
+      return { conversations };
+    }),
+    
+    clearUnreadCount: (conversationId) =>
+    set((state) => {
+      const conversations = [...state.conversations];
+      const idx = conversations.findIndex(c => c._id === conversationId);
+      if (idx !== -1) {
+        conversations[idx] = {
+          ...conversations[idx],
+          unreadCount: 0,
+        } as Conversation;
       }
       return { conversations };
     }),
@@ -167,6 +205,74 @@ export const useChatStore = create<ChatState>((set) => ({
     }
     return { onlineUsers: Array.from(current) };
   }),
+
+  setTypingActive: (conversationId, userId, username) => 
+    set((state) => {
+      const current = state.typingUsers[conversationId] || [];
+      if (current.some(u => u.userId === userId)) return state;
+      return {
+        typingUsers: {
+          ...state.typingUsers,
+          [conversationId]: [...current, { userId, username }]
+        }
+      };
+    }),
+
+  setTypingStopped: (conversationId, userId) =>
+    set((state) => {
+      const current = state.typingUsers[conversationId] || [];
+      return {
+        typingUsers: {
+          ...state.typingUsers,
+          [conversationId]: current.filter(u => u.userId !== userId)
+        }
+      };
+    }),
+
+  updateMessageReadStatus: (conversationId, userId, readAt) =>
+    set((state) => {
+      const messages = state.messages[conversationId];
+      if (!messages) return state;
+
+      const updatedMessages = messages.map(msg => {
+        // If message is sent by current user and read by someone else
+        if (!msg.readBy) msg.readBy = [];
+        if (!msg.readBy.some(r => r.userId === userId)) {
+          return {
+            ...msg,
+            readBy: [...msg.readBy, { userId, readAt: readAt.toISOString() }]
+          };
+        }
+        return msg;
+      });
+
+      return {
+        messages: {
+          ...state.messages,
+          [conversationId]: updatedMessages
+        }
+      };
+    }),
+
+  updateMessageReactions: (conversationId, messageId, reactions) =>
+    set((state) => {
+      const messages = state.messages[conversationId];
+      if (!messages) return state;
+
+      const updatedMessages = messages.map(msg => {
+        if (msg._id === messageId) {
+          return { ...msg, reactions };
+        }
+        return msg;
+      });
+
+      return {
+        messages: {
+          ...state.messages,
+          [conversationId]: updatedMessages
+        }
+      };
+    })
 }));
 
 // Optimized Selectors

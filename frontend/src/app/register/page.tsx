@@ -9,6 +9,7 @@ import { Eye, EyeOff, MessageSquare, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/useAuthStore";
+import LightRays from "@/components/ui/LightRays";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -74,6 +75,7 @@ export default function RegisterPage() {
     <div className="flex min-h-screen w-full">
       {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center bg-gradient-to-br from-[oklch(0.18_0.02_260)] via-[oklch(0.14_0.015_240)] to-[oklch(0.10_0.01_220)]">
+        <LightRays raysOrigin="left" raysColor="#10b981" raysSpeed={1.5} followMouse={true} />
         <div className="absolute inset-0 overflow-hidden">
           <motion.div
             className="absolute -top-40 -right-40 h-[500px] w-[500px] rounded-full bg-gradient-to-bl from-emerald-500/10 to-transparent blur-3xl"
@@ -102,8 +104,9 @@ export default function RegisterPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex w-full items-center justify-center px-4 lg:w-1/2">
-        <motion.div className="w-full max-w-md" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
+      <div className="flex w-full items-center justify-center px-4 lg:w-1/2 relative overflow-hidden">
+        <LightRays raysOrigin="right" raysColor="#10b981" raysSpeed={1.5} followMouse={true} />
+        <motion.div className="w-full max-w-md relative z-10" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
               <MessageSquare className="h-5 w-5 text-primary-foreground" />

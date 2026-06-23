@@ -4,8 +4,11 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
-import type { AuthUser, JwtPayload } from '@chat/shared';
+import type { AuthUser } from '@chat/shared';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -39,7 +42,15 @@ export class AttachmentsController {
   })
   @UseInterceptors(FileInterceptor('file'))
   async uploadImage(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          new FileTypeValidator({ fileType: '.(png|jpeg|jpg|webp|gif)' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
 
     @CurrentUser() user: AuthUser,
   ) {
@@ -83,7 +94,15 @@ export class AttachmentsController {
   })
   @UseInterceptors(FileInterceptor('file'))
   async uploadAudio(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
+          new FileTypeValidator({ fileType: '.(mp3|wav|ogg|m4a|webm)' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
     @CurrentUser() user: AuthUser,
   ) {
     if (!file) {
@@ -115,7 +134,18 @@ export class AttachmentsController {
   })
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 25 * 1024 * 1024 }), // 25MB
+          new FileTypeValidator({
+            fileType:
+              '.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|rar|7z|json|xml|md)',
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
 
     @CurrentUser() user: AuthUser,
   ) {

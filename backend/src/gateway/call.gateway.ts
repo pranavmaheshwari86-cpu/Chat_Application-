@@ -4,22 +4,34 @@ import {
   SubscribeMessage,
   MessageBody,
   ConnectedSocket,
+  OnGatewayInit,
 } from '@nestjs/websockets';
 import { OnEvent } from '@nestjs/event-emitter';
 import { Server } from 'socket.io';
 import { UseGuards, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { WsAuthGuard } from '../common/guards/ws-auth.guard';
 import { ClientEvents, ServerEvents } from '../common/constants/socket-events';
 import type { AuthenticatedSocket } from '@chat/shared';
 import type { CallDocument } from '../modules/calls/schemas/call.schema';
-
 @WebSocketGateway({ namespace: '/' })
 @UseGuards(WsAuthGuard)
-export class CallGateway {
+export class CallGateway implements OnGatewayInit {
   @WebSocketServer()
   server: Server;
 
   private readonly logger = new Logger(CallGateway.name);
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  afterInit(server: Server) {
+    this.logger.log('CallGateway initialized');
+    // Authentication is handled by WsAuthGuard class decorator
+  }
 
   // --- Client -> Server Signaling Events ---
 

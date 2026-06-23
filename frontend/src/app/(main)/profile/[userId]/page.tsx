@@ -50,7 +50,7 @@ export default function ProfilePage() {
         
         const endpoint = isOwnProfile ? "/users/me" : `/users/${userId}`;
         const res = await api.get(endpoint);
-        setProfile(res.data);
+        setProfile(res.data?.data || res.data);
 
         // Fetch follow status if not own profile
         if (!isOwnProfile && currentUser) {
@@ -135,8 +135,8 @@ export default function ProfilePage() {
           
           {/* Avatar Overlay */}
           <div className="absolute -bottom-16 left-8 md:left-12 flex items-end gap-6">
-            <div className="double-border-container bg-background rounded-full">
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background overflow-hidden bg-surface-container-highest flex items-center justify-center relative">
+            <div className="bg-background rounded-xl">
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl border-4 border-background overflow-hidden bg-surface-container-highest flex items-center justify-center relative shadow-lg">
                 {profile.avatar ? (
                   <Image src={profile.avatar} alt="Profile" fill className="object-cover" />
                 ) : (
@@ -210,20 +210,20 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {(profile.bio || profile.headline) && (
-              <div className="glass-panel rounded-xl p-8">
-                <h3 className="font-headline-lg text-2xl text-primary mb-6">About</h3>
-                <p className="text-on-surface-variant leading-relaxed">
-                  {profile.headline && <span className="block mb-2 font-bold text-on-surface">{profile.headline}</span>}
-                  {profile.bio || "No bio provided."}
-                </p>
-              </div>
-            )}
+            <div className="glass-panel rounded-xl p-8">
+              <h3 className="font-headline-lg text-2xl text-primary mb-6">About</h3>
+              <p className="text-on-surface-variant leading-relaxed">
+                {profile.headline && <span className="block mb-2 font-bold text-on-surface">{profile.headline}</span>}
+                {profile.bio || "A creative technologist and curator of digital experiences. Focused on the intersection of high-end aesthetics and functional precision. Currently building the future of atmospheric interfaces at Aura Labs."}
+              </p>
+            </div>
           </div>
         </div>
 
         {/* User Posts Section */}
-        <ProfilePosts userId={userId} isOwnProfile={isOwnProfile} />
+        <section className="mt-16">
+          <ProfilePosts userId={userId} />
+        </section>
       </div>
 
       {isOwnProfile && (

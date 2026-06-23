@@ -17,12 +17,12 @@
     "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
     "start:backend": "npm --workspace=backend run start:prod",
     "start:frontend": "npm --workspace=frontend run start",
-    "start": "npm run start:backend & npm run start:frontend",
+    "start": "npx concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "install:all": "npm install"
+  },
+  "dependencies": {
+    "acorn": "^8.17.0",
+    "concurrently": "^10.0.3",
+    "estraverse": "^5.3.0"
   }
 }
-
-
-
-
-

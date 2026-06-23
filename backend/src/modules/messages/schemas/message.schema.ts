@@ -112,5 +112,8 @@ export class Message {
 export const MessageSchema = SchemaFactory.createForClass(Message);
 
 MessageSchema.index({ conversationId: 1, createdAt: -1 });
+MessageSchema.index({ conversationId: 1, _id: -1 }); // For cursor-based pagination
+MessageSchema.index({ conversationId: 1, senderId: 1, 'readBy.userId': 1 });
+MessageSchema.index({ conversationId: 1, isDeleted: 1, createdAt: -1 });
 MessageSchema.index({ content: 'text' });
 MessageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });

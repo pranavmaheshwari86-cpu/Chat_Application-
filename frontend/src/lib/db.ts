@@ -39,7 +39,7 @@ export const cacheMessages = async (messages: Message[]) => {
 
 export const getCachedMessages = async (conversationId: string): Promise<Message[]> => {
   const messages = await db.messages.where('conversationId').equals(conversationId).sortBy('createdAt');
-  return messages.reverse(); // Newest first, or depends on original implementation? (idb code did `b.createdAt - a.createdAt` which is descending). Wait, let's just do `reverse()`.
+  return messages.reverse();
 };
 
 export const cacheConversations = async (conversations: Conversation[]) => {

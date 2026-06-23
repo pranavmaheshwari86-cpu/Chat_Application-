@@ -35,11 +35,15 @@ describe('EventsService', () => {
   describe('emitUserOnline', () => {
     it('should add job to queue', async () => {
       await service.emitUserOnline('user1');
-      expect(mockQueue.add).toHaveBeenCalledWith(
-        EventName.USER_ONLINE,
-        expect.objectContaining({ userId: 'user1' }),
-        expect.any(Object),
-      );
+      expect(mockQueue.add).toHaveBeenCalled();
+      const callArgs = mockQueue.add.mock.calls[0];
+      expect(callArgs[0]).toBe(EventName.USER_ONLINE);
+      expect(callArgs[1]).toEqual(expect.objectContaining({ userId: 'user1' }));
+      const payload = callArgs[1];
+      expect(payload).toHaveProperty('eventId');
+      expect(payload).toHaveProperty('timestamp');
+      expect(typeof payload.eventId).toBe('string');
+      expect(typeof payload.timestamp).toBe('string');
     });
   });
 });

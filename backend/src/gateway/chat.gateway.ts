@@ -17,7 +17,6 @@ import {
   UsePipes,
   ValidationPipe,
   Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -46,62 +45,38 @@ export class ChatGateway
     private configService: ConfigService,
     private jwtService: JwtService,
     private conversationsService: ConversationsService,
-    @Inject(forwardRef(() => MessagesService))
     private messagesService: MessagesService,
   ) {}
 
   afterInit(server: Server) {
     this.logger.log('ChatGateway initialized');
-
-    // Use Socket.io middleware to authenticate BEFORE connection is established
-    server.use((socket: AuthenticatedSocket, next) => {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      (async () => {
-        try {
-          let token = '';
-          const authHeader = socket.handshake.headers.authorization;
-          if (authHeader && authHeader.startsWith('Bearer ')) {
-            token = authHeader.split(' ')[1];
-          } else if (socket.handshake.auth?.token) {
-            token = socket.handshake.auth.token;
-          }
-
-          if (!token) {
-            next(new Error('Authentication error'));
-            return;
-          }
-
-          const secret = this.configService.get<string>('JWT_ACCESS_SECRET');
-          const payload = await this.jwtService.verifyAsync(token, { secret });
-
-          socket.user = {
-            userId: payload.sub,
-            email: payload.email,
-            username: payload.username,
-            displayName: payload.displayName,
-          };
-
-          next();
-        } catch (err) {
-          next(new Error('Authentication error'));
-        }
-      })();
-    });
+    // Authentication is handled by WsAuthGuard class decorator
   }
 
-  handleConnection(client: AuthenticatedSocket) {
-    if (!client.user) {
-      this.logger.warn(`Client connected without user object: ${client.id}`);
-      client.disconnect();
-      return;
-    }
+  async handleConnection(client: AuthenticatedSocket) {
+    try {
+      const token = client.handshake.auth?.token || client.handshake.headers?.authorization?.split(' ')[1];
+      if (!token) {
+        throw new Error('No token provided');
+      }
 
-    // Join personal room for real-time alerts across all conversations
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    client.join(`user:${client.user.userId}`);
-    this.logger.log(
-      `Client connected and joined personal room: ${client.id} (User: ${client.user.userId})`,
-    );
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.get<string>('jwt.accessSecret')
+      });
+
+      client.user = {
+        userId: payload.sub,
+        email: payload.email,
+        username: payload.username,
+        displayName: payload.displayName,
+      };
+
+      client.join(`user:${client.user.userId}`);
+      this.logger.log(`Client connected: ${client.id} (User: ${client.user.userId})`);
+    } catch (err) {
+      this.logger.warn(`Client connection rejected without valid user: ${client.id}`);
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
@@ -110,17 +85,76 @@ export class ChatGateway
 
   @OnEvent('user.logout')
   handleUserLogout(payload: { userId: string }) {
-    for (const [id, socket] of this.server.sockets.sockets as unknown as Map<
-      string,
-      AuthenticatedSocket
-    >) {
-      if (socket.user && socket.user.userId === payload.userId) {
-        this.logger.log(
-          `Force disconnecting logged out user: ${payload.userId}`,
-        );
-        socket.disconnect(true);
-      }
+    this.logger.log(`Force disconnecting logged out user: ${payload.userId}`);
+    this.server.in(`user:${payload.userId}`).disconnectSockets(true);
+  }
+
+  @OnEvent('message.created')
+  handleMessageCreated(payload: {
+    conversationId: string;
+    message: any;
+    conversation: any;
+  }) {
+    // Emit to conversation room
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit(ServerEvents.MESSAGE_NEW, {
+        conversationId: payload.conversationId,
+        message: payload.message,
+      });
+
+    // Emit to members' personal rooms who are NOT in the conversation room
+    if (payload.conversation?.members) {
+      payload.conversation.members.forEach((member: any) => {
+        const memberRoom = `user:${member.userId.toString()}`;
+        this.server
+          .to(memberRoom)
+          .except(`conversation:${payload.conversationId}`)
+          .emit(ServerEvents.MESSAGE_NEW, {
+            conversationId: payload.conversationId,
+            message: payload.message,
+          });
+      });
     }
+  }
+
+  @OnEvent('message.edited')
+  handleMessageEdited(payload: {
+    conversationId: string;
+    messageId: string;
+    content: string;
+    editedAt: Date;
+    senderId?: string;
+  }) {
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit(ServerEvents.MESSAGE_EDITED, {
+        ...payload,
+        editedAt: payload.editedAt?.toISOString() || new Date().toISOString(),
+      });
+  }
+
+  @OnEvent('message.deleted')
+  handleMessageDeleted(payload: { conversationId: string; messageId: string }) {
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit(ServerEvents.MESSAGE_DELETED, payload);
+  }
+
+  @OnEvent('message.flagged')
+  handleMessageFlagged(payload: { messageId: string }) {
+    // In a real app, you might want to broadcast that a message was flagged/hidden
+  }
+
+  @OnEvent('message.read')
+  handleMessageReadInternal(payload: {
+    conversationId: string;
+    userId: string;
+    readAt: Date;
+  }) {
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit(ServerEvents.MESSAGE_SEEN, payload);
   }
 
   @SubscribeMessage(ClientEvents.CONVERSATION_JOIN)
@@ -231,31 +265,79 @@ export class ChatGateway
     payload: { messageId: string; conversationId: string; emoji: string },
   ) {
     try {
-      // Verify membership before allowing reaction broadcast
-      await this.conversationsService.getConversation(
+      const result = await this.messagesService.reactToMessage(
+        payload.messageId,
         payload.conversationId,
         client.user.userId,
+        payload.emoji,
       );
-
-      const reaction = {
-        userId: client.user.userId,
-        emoji: payload.emoji,
-        createdAt: new Date(),
-      };
-
-      this.server
-        .to(`conversation:${payload.conversationId}`)
-        .emit(ServerEvents.MESSAGE_REACTION, {
-          conversationId: payload.conversationId,
-          messageId: payload.messageId,
-          reactions: [reaction],
-        });
-      return { success: true };
+      return result;
     } catch (error) {
       this.logger.warn(
         `Unauthorized reaction attempt: ${client.id} on ${payload.messageId}`,
       );
+      return { success: false, error: error.message };
+    }
+  }
 
+  @OnEvent('message.reacted')
+  handleMessageReacted(payload: {
+    conversationId: string;
+    messageId: string;
+    reactions: any[];
+  }) {
+    this.server
+      .to(`conversation:${payload.conversationId}`)
+      .emit(ServerEvents.MESSAGE_REACTION, payload);
+  }
+
+  @SubscribeMessage(ClientEvents.TYPING_START)
+  handleTypingStart(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody('conversationId') conversationId: string,
+  ) {
+    client.broadcast
+      .to(`conversation:${conversationId}`)
+      .emit(ServerEvents.TYPING_ACTIVE, {
+        conversationId,
+        userId: client.user.userId,
+        username: client.user.username || 'Someone',
+      });
+  }
+
+  @SubscribeMessage(ClientEvents.TYPING_STOP)
+  handleTypingStop(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody('conversationId') conversationId: string,
+  ) {
+    client.broadcast
+      .to(`conversation:${conversationId}`)
+      .emit(ServerEvents.TYPING_STOPPED, {
+        conversationId,
+        userId: client.user.userId,
+      });
+  }
+
+  @SubscribeMessage(ClientEvents.MESSAGE_READ)
+  async handleMessageRead(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody('conversationId') conversationId: string,
+  ) {
+    try {
+      // Update DB
+      await this.messagesService.markAsRead(conversationId, client.user.userId);
+
+      // Broadcast to sender that messages were read
+      client.broadcast
+        .to(`conversation:${conversationId}`)
+        .emit(ServerEvents.MESSAGE_SEEN, {
+          conversationId,
+          userId: client.user.userId,
+          readAt: new Date(),
+        });
+
+      return { success: true };
+    } catch (error) {
       return { success: false, error: error.message };
     }
   }

@@ -28,19 +28,40 @@ const buttonVariants = cva(
   }
 );
 
+import BorderGlow from "./BorderGlow";
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+    VariantProps<typeof buttonVariants> {
+  glow?: boolean;
+}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => {
-    return (
+  ({ className, variant, size, glow = false, ...props }, ref) => {
+    const isFullWidth = typeof className === 'string' && className.includes('w-full');
+    const buttonElement = (
       <button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
       />
     );
+
+    if (glow && (variant === 'default' || variant === 'outline' || !variant)) {
+      return (
+        <BorderGlow
+          className={isFullWidth ? "w-full" : ""}
+          borderRadius={6}
+          backgroundColor="transparent"
+          glowRadius={20}
+          edgeSensitivity={20}
+        >
+          {buttonElement}
+        </BorderGlow>
+      );
+    }
+
+    return buttonElement;
   }
 );
 Button.displayName = "Button";

@@ -87,11 +87,13 @@ export const sendOfflineAwareMessage = async (
   const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const currentUser = useAuthStore.getState().user;
   
+  const currentUserId = typeof currentUser === 'string' ? currentUser : (currentUser as any)?._id || '';
+
   const tempMessage = {
     _id: tempId,
-    tempId, // specific to pending queue
+    tempId,
     conversationId,
-    senderId: currentUser,
+    senderId: currentUserId,
     content,
     type,
     replyToId,

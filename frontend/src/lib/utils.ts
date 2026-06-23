@@ -16,7 +16,9 @@ export function generateAvatarInitials(name: string): string {
   if (!trimmed) return '?';
   const parts = trimmed.split(' ');
   if (parts.length >= 2) {
-    return `${parts[0]?.[0] || ''}${parts[1]?.[0] || ''}`.toUpperCase();
+    // First letter of first name and first letter of surname
+    return `${parts[0]?.[0] || ''}${parts[parts.length - 1]?.[0] || ''}`.toUpperCase();
   }
-  return name.substring(0, 2).toUpperCase();
+  // If no surname, just return the first letter
+  return trimmed.substring(0, 1).toUpperCase();
 }

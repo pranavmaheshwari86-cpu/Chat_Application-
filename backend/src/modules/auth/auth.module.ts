@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { TokenService } from './services/token.service';
 import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
@@ -16,7 +17,13 @@ import { User, UserSchema } from '../users/schemas/user.schema';
     JwtModule.register({}),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy],
-  exports: [AuthService, JwtModule],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtRefreshStrategy,
+    GoogleStrategy,
+    TokenService,
+  ],
+  exports: [AuthService, JwtModule, TokenService],
 })
 export class AuthModule {}

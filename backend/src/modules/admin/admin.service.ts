@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../users/schemas/user.schema';
@@ -7,6 +7,8 @@ import {
   ConversationDocument,
 } from '../conversations/schemas/conversation.schema';
 import { Message, MessageDocument } from '../messages/schemas/message.schema';
+
+const VALID_ROLES = ['user', 'admin'] as const;
 
 @Injectable()
 export class AdminService {
@@ -44,6 +46,11 @@ export class AdminService {
   }
 
   async setRole(userId: string, role: string) {
+    if (!VALID_ROLES.includes(role as any)) {
+      throw new BadRequestException(
+        `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`,
+      );
+    }
     return this.userModel
       .findByIdAndUpdate(userId, { role }, { new: true })
       .select('-passwordHash');

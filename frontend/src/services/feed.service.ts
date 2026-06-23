@@ -1,5 +1,4 @@
  
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import api from './api';
 
 export interface Post {
@@ -17,21 +16,30 @@ export interface Post {
   createdAt: string;
 }
 
+interface ApiResponse<T> {
+  data: T;
+  success?: boolean;
+  error?: string;
+}
+
+function unwrapResponse<T>(res: ApiResponse<ApiResponse<T> | T>): T {
+  const body = res.data;
+  return (body && typeof body === 'object' && 'data' in body ? body.data : body) as T;
+}
+
 export const feedService = {
-  getFeed: async (limit = 10, skip = 0) => {
-    const response = await api.get<Post[]>(`/feed?limit=${limit}&skip=${skip}`);
-    // After Axios interceptor: response = { success, data: [...posts] }
-    const posts = (response as any)?.data || (Array.isArray(response) ? response : []);
-    return posts;
+  getFeed: async (limit = 10, skip = 0): Promise<Post[]> => {
+    const response = await api.get(`/feed?limit=${limit}&skip=${skip}`);
+    return unwrapResponse<Post[]>(response);
   },
 
   likePost: async (postId: string) => {
-    const response = await api.post<{ success: boolean; likesCount: number }>(`/posts/${postId}/like`);
-    return (response as any)?.data || response;
+    const response = await api.post(`/posts/${postId}/like`);
+    return unwrapResponse<{ success: boolean; likesCount: number }>(response);
   },
 
   unlikePost: async (postId: string) => {
-    const response = await api.post<{ success: boolean; likesCount: number }>(`/posts/${postId}/unlike`);
-    return (response as any)?.data || response;
+    const response = await api.post(`/posts/${postId}/unlike`);
+    return unwrapResponse<{ success: boolean; likesCount: number }>(response);
   }
 };

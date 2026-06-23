@@ -84,25 +84,25 @@ export class ConversationsService {
       throw new BadRequestException('Cannot create conversation with yourself');
     }
 
-    // Atomic upsert to prevent duplicate creation race condition
+    const ids = [
+      new Types.ObjectId(userId),
+      new Types.ObjectId(participantId),
+    ].sort((a, b) => a.toString().localeCompare(b.toString()));
+    const directKey = `${ids[0].toString()}_${ids[1].toString()}`;
+
     const conversation = await this.conversationModel
       .findOneAndUpdate(
-        {
-          type: 'direct',
-          $and: [
-            { 'members.userId': new Types.ObjectId(userId) },
-            { 'members.userId': new Types.ObjectId(participantId) },
-          ],
-          members: { $size: 2 },
-        },
+        { directKey },
         {
           $setOnInsert: {
             type: 'direct',
+            directKey,
             members: [
-              { userId: new Types.ObjectId(userId), role: 'owner' },
-              { userId: new Types.ObjectId(participantId), role: 'member' },
+              { userId: ids[0], role: 'owner' },
+              { userId: ids[1], role: 'member' },
             ],
             createdBy: new Types.ObjectId(userId),
+            isE2E: createConversationDto.isE2E || false,
           },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },

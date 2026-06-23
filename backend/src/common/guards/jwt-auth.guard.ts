@@ -14,12 +14,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   canActivate(context: ExecutionContext) {
-    // Let WsAuthGuard handle WebSocket authentication
     if (context.getType() === 'ws') {
-      return true;
+      return super.canActivate(context);
     }
-
-    // Allow CORS preflight requests to pass through without authentication
 
     const request = context.switchToHttp().getRequest();
 

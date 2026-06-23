@@ -34,27 +34,32 @@ export class DiscoveryService {
 
     if (matchTerms.length === 0) {
       // Fallback: return recently active users
-      return this.userModel
+      const users = await this.userModel
         .find({
           _id: { $ne: new Types.ObjectId(userId) },
         })
-        .select(
-          'username displayName avatar bio headline accountType trustScore',
-        )
+        .select('username displayName avatar bio headline')
         .sort({ lastSeen: -1 })
         .limit(limit)
         .exec();
+
+      return users;
     }
 
     // Score users by overlap in interests + skills
-    return this.userModel.aggregate([
+    const results = await this.userModel.aggregate([
       { $match: { _id: { $ne: new Types.ObjectId(userId) } } },
       {
         $addFields: {
           matchScore: {
             $size: {
               $setIntersection: [
-                { $ifNull: [{ $concatArrays: ['$interests', '$skills'] }, []] },
+                {
+                  $concatArrays: [
+                    { $ifNull: ['$interests', []] },
+                    { $ifNull: ['$skills', []] },
+                  ],
+                },
                 matchTerms,
               ],
             },
@@ -72,9 +77,16 @@ export class DiscoveryService {
           passwordResetExpires: 0,
           settings: 0,
           blockedUsers: 0,
+          trustScore: 0,
+          accountType: 0,
         },
       },
     ]);
+
+    return results.map((user) => ({
+      ...user,
+      id: user._id.toString(),
+    }));
   }
 
   /**

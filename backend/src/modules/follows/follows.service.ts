@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { Follow, FollowDocument } from './schemas/follow.schema';
 import { User, UserDocument } from '../users/schemas/user.schema';
 
@@ -79,5 +79,13 @@ export class FollowsService {
       following: followingId as any,
     });
     return { status: follow ? follow.status : 'none' };
+  }
+
+  async getFollowingIds(userId: string): Promise<string[]> {
+    const follows = await this.followModel.find({
+      follower: userId as any,
+      status: 'accepted',
+    });
+    return follows.map((f) => f.following.toString());
   }
 }

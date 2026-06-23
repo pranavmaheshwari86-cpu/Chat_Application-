@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import type { AuthUser, JwtPayload } from '@chat/shared';
+import type { AuthUser } from '@chat/shared';
 import {
   ApiTags,
   ApiOperation,

@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { JwtPayload } from '@chat/shared';
 import { randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import * as Bull from 'bull';
@@ -9,8 +8,6 @@ import {
   MessageCreatedPayload,
   MessageUpdatedPayload,
   MessageDeletedPayload,
-  UserOnlinePayload,
-  UserOfflinePayload,
   RelationshipUpdatedPayload,
   MemoryCreatedPayload,
 } from './types/events.types';
@@ -24,19 +21,15 @@ export class EventsService {
   ) {}
 
   private async emitEvent(eventName: EventName, payload: any) {
-    const eventId = payload.eventId || randomUUID();
+    const eventId = randomUUID();
 
     const eventPayload = {
       ...payload,
-
       eventId,
-
-      timestamp: payload.timestamp || new Date().toISOString(),
+      timestamp: new Date().toISOString(),
     };
 
-    await this.eventsQueue.add(eventName, eventPayload, {
-      jobId: eventId, // Native BullMQ Idempotency: same jobId won't be queued twice
-    });
+    await this.eventsQueue.add(eventName, eventPayload);
     this.logger.debug(`Queued ${eventName} event [ID: ${eventId}]`);
   }
 

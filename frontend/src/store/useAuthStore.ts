@@ -1,8 +1,6 @@
  
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { User } from '@chat/shared';
+import type { User } from '@chat/shared';
 import { api } from '../services/api';
 
 interface AuthState {
@@ -22,7 +20,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
   accessToken: null,
   isAuthenticated: false,
   isInitializing: true,
-  setAuth: (user, accessToken) => set({ user, accessToken, isAuthenticated: true }),
+  setAuth: (user, accessToken) => set({ user, accessToken, isAuthenticated: true, isInitializing: false }),
   setAccessToken: (accessToken) => set({ accessToken }),
   updateUser: (data) =>
     set((state) => ({
@@ -30,6 +28,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
     })),
   logout: () => set({ user: null, accessToken: null, isAuthenticated: false }),
   checkAuth: async () => {
+    // If user already has a valid session (just logged in or registered),
+    // skip the refresh call to avoid overwriting the auth state.
+    const currentState = useAuthStore.getState();
+    if (currentState.accessToken && currentState.isAuthenticated) {
+      set({ isInitializing: false });
+      return;
+    }
+
     try {
       const { data } = await api.post('/auth/refresh');
       const newAccessToken = data?.data?.accessToken || data?.accessToken;
@@ -46,7 +52,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
       } else {
         set({ user: null, accessToken: null, isAuthenticated: false, isInitializing: false });
       }
-    } catch (error) {
+    } catch (_error) {
       set({ user: null, accessToken: null, isAuthenticated: false, isInitializing: false });
     }
   }

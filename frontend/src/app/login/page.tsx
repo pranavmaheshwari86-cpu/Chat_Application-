@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import LightRays from "@/components/ui/LightRays";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -106,6 +107,7 @@ export default function LoginPage() {
       <main className="min-h-screen flex w-full">
         {/* BEGIN: LeftBrandingPanel */}
         <section className="hidden lg:flex w-5/12 bg-[#0b0f10] relative overflow-hidden flex-col items-center justify-center p-12 border-r border-[#40484b]/30">
+          <LightRays raysOrigin="left" raysColor="#E2B859" raysSpeed={1.5} followMouse={true} />
           {/* Ambient light effect */}
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#E2B859]/10 rounded-full blur-[120px] pointer-events-none"></div>
           
@@ -114,8 +116,8 @@ export default function LoginPage() {
             <div className="mb-10 p-6 bg-[#101415] rounded-sm border border-[#40484b]/50 shadow-2xl">
               <Image 
                 alt="FlashChat Logo" 
-                width={64}
-                height={64}
+                width={128}
+                height={128}
                 className="object-contain rounded-lg" 
                 src="/flashchat_logo.png"
               />
@@ -152,11 +154,12 @@ export default function LoginPage() {
         {/* END: LeftBrandingPanel */}
 
         {/* BEGIN: RightLoginForm */}
-        <section className="flex-1 flex flex-col justify-center px-6 sm:px-16 lg:px-24 xl:px-32 bg-[#020617] relative z-0">
+        <section className="flex-1 flex flex-col justify-center px-6 sm:px-16 lg:px-24 xl:px-32 bg-[#020617] relative z-0 overflow-hidden">
+          <LightRays raysOrigin="right" raysColor="#E2B859" raysSpeed={1.5} followMouse={true} />
           {/* Subtle ambient light right side */}
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-[#0b0f10]/50 to-transparent pointer-events-none -z-10"></div>
           
-          <div className="w-full max-w-md mx-auto">
+          <div className="w-full max-w-md mx-auto relative z-10">
             {/* Header */}
             <div className="mb-12">
               <h2 className="font-heading text-4xl lg:text-5xl font-medium text-white mb-3 tracking-tight">

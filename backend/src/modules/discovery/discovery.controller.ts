@@ -26,7 +26,7 @@ export class DiscoveryController {
     @Query('limit') limit?: number,
   ) {
     const people = await this.discoveryService.discoverPeople(
-      req.user.id,
+      req.user.userId,
       limit,
     );
     return { data: people };

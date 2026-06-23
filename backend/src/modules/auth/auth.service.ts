@@ -2,11 +2,9 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
-  NotFoundException,
   Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -15,6 +13,7 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { APP_CONSTANTS } from '../../common/constants/app.constants';
+import { TokenService, TokenPair } from './services/token.service';
 
 @Injectable()
 export class AuthService {
@@ -22,9 +21,9 @@ export class AuthService {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    private jwtService: JwtService,
     private configService: ConfigService,
     private eventEmitter: EventEmitter2,
+    private tokenService: TokenService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -63,6 +62,7 @@ export class AuthService {
       provider: 'local',
     });
 
+    const tokens = await this.tokenService.generateTokens(user);
     await user.save();
 
     this.logger.log(`New user registered: ${username}`, {
@@ -70,7 +70,7 @@ export class AuthService {
       userId: user._id.toString(),
     });
 
-    return this.generateTokens(user);
+    return tokens;
   }
 
   async login(loginDto: LoginDto) {
@@ -99,9 +99,11 @@ export class AuthService {
     // Update last seen and status
     user.status = 'online';
     user.lastSeen = new Date();
+
+    const tokens = await this.tokenService.generateTokens(user);
     await user.save();
 
-    return this.generateTokens(user);
+    return tokens;
   }
 
   async googleLogin(googleUser: Record<string, any>) {
@@ -110,9 +112,12 @@ export class AuthService {
     if (!user) {
       // Guarantee unique username with a deterministic loop
       let suffix = 0;
-      let emailPrefix = typeof googleUser.email === 'string' ? googleUser.email.split('@')[0] : 'user';
+      const emailPrefix =
+        typeof googleUser.email === 'string'
+          ? googleUser.email.split('@')[0]
+          : 'user';
       let username = emailPrefix;
-      
+
       while (await this.userModel.findOne({ username })) {
         suffix++;
         username = `${emailPrefix}${suffix}`;
@@ -134,6 +139,7 @@ export class AuthService {
       user.lastSeen = new Date();
     }
 
+    const tokens = await this.tokenService.generateTokens(user);
     await user.save();
 
     this.logger.log(`User logged in: ${user.username}`, {
@@ -141,14 +147,13 @@ export class AuthService {
       userId: user._id.toString(),
     });
 
-    return this.generateTokens(user);
+    return tokens;
   }
 
   async logout(userId: string) {
+    await this.tokenService.revokeRefreshToken(userId);
     await this.userModel.findByIdAndUpdate(userId, {
-      $unset: { refreshTokenHash: 1 },
-      status: 'offline',
-      lastSeen: new Date(),
+      $set: { status: 'offline', lastSeen: new Date() },
     });
 
     this.eventEmitter.emit('user.logout', { userId });
@@ -164,7 +169,7 @@ export class AuthService {
   async refreshTokens(userId: string, refreshToken: string) {
     const user = await this.userModel
       .findById(userId)
-      .select('+refreshTokenHash');
+      .select('+refreshTokenHash +tokenVersion');
 
     if (!user || !user.refreshTokenHash) {
       this.logger.warn(
@@ -180,11 +185,7 @@ export class AuthService {
     );
 
     if (!isRefreshTokenValid) {
-      // Refresh token reuse detected — a stolen token was replayed.
-      // Invalidate ALL sessions for this user as a security precaution.
-      await this.userModel.findByIdAndUpdate(userId, {
-        $unset: { refreshTokenHash: 1 },
-      });
+      await this.tokenService.revokeRefreshToken(userId);
       this.eventEmitter.emit('user.logout', { userId });
 
       this.logger.error(
@@ -194,49 +195,16 @@ export class AuthService {
       throw new UnauthorizedException('Access Denied');
     }
 
-    return this.generateTokens(user);
-  }
-
-  private async generateTokens(user: UserDocument) {
-    const payload = {
-      sub: user._id.toString(),
-      email: user.email,
-      username: user.username,
-      displayName: user.displayName,
-    };
-
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('jwt.accessSecret'),
-
-        expiresIn: this.configService.get<string>('jwt.accessExpiry') as any,
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('jwt.refreshSecret'),
-
-        expiresIn: this.configService.get<string>('jwt.refreshExpiry') as any,
-      }),
-    ]);
-
-    // Hash refresh token before saving
-    const refreshTokenHash = await bcrypt.hash(
-      refreshToken,
-      APP_CONSTANTS.BCRYPT_ROUNDS,
-    );
-    user.refreshTokenHash = refreshTokenHash;
-    await user.save();
-
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        _id: user._id,
-        email: user.email,
-        username: user.username,
-        displayName: user.displayName,
-        avatar: user.avatar,
-        status: user.status,
-      },
-    };
+    try {
+      return await this.tokenService.generateTokensWithAtomicRotation(
+        user,
+        refreshToken,
+      );
+    } catch (error) {
+      if ((error as Error).message === 'TOKEN_ROTATION_RACE') {
+        throw new UnauthorizedException('Access Denied');
+      }
+      throw error;
+    }
   }
 }

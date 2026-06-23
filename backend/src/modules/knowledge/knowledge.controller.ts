@@ -127,7 +127,7 @@ export class KnowledgeController {
     @Req() req: AuthenticatedRequest,
     @Body() body: CreateKnowledgeDto,
   ) {
-    const doc = await this.knowledgeService.create(req.user.id, body);
+    const doc = await this.knowledgeService.create(req.user.userId, body);
     return { data: doc };
   }
 
@@ -140,7 +140,7 @@ export class KnowledgeController {
     @Req() req: AuthenticatedRequest,
     @Body() body: UpdateKnowledgeDto,
   ) {
-    const doc = await this.knowledgeService.update(id, req.user.id, body);
+    const doc = await this.knowledgeService.update(id, req.user.userId, body);
     return { data: doc };
   }
 
@@ -154,7 +154,7 @@ export class KnowledgeController {
     @Query('limit') limit?: number,
   ) {
     const docs = await this.knowledgeService.listPersonal(
-      req.user.id,
+      req.user.userId,
       type,
       limit,
     );
@@ -185,7 +185,7 @@ export class KnowledgeController {
   ) {
     const docs = await this.knowledgeService.search(
       q,
-      req.user.id,
+      req.user.userId,
       communityId,
       limit,
     );
@@ -205,7 +205,7 @@ export class KnowledgeController {
   ) {
     const docs = await this.knowledgeService.semanticSearch(
       q,
-      req.user.id,
+      req.user.userId,
       limit,
     );
     return { data: docs };
@@ -214,7 +214,7 @@ export class KnowledgeController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a knowledge document by ID' })
   async getById(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    const doc = await this.knowledgeService.getById(id, req.user.id);
+    const doc = await this.knowledgeService.getById(id, req.user.userId);
     return { data: doc };
   }
 
@@ -225,14 +225,18 @@ export class KnowledgeController {
     @Req() req: AuthenticatedRequest,
     @Body() body: AddKnowledgeCollaboratorDto,
   ) {
-    await this.knowledgeService.addCollaborator(id, req.user.id, body.userId);
+    await this.knowledgeService.addCollaborator(
+      id,
+      req.user.userId,
+      body.userId,
+    );
     return { message: 'Collaborator added' };
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Archive a knowledge document' })
   async archive(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    const doc = await this.knowledgeService.archive(id, req.user.id);
+    const doc = await this.knowledgeService.archive(id, req.user.userId);
     return { data: doc };
   }
 }

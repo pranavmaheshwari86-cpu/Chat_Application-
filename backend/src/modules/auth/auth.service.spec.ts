@@ -6,8 +6,7 @@ import { AuthService } from './auth.service';
 import { User } from '../users/schemas/user.schema';
 import { ConflictException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-
-import * as bcrypt from 'bcryptjs';
+import { TokenService } from './services/token.service';
 
 jest.mock('bcryptjs', () => ({
   hash: jest.fn().mockResolvedValue('hashedPassword'),
@@ -31,6 +30,34 @@ describe('AuthService', () => {
     get: jest.fn().mockReturnValue('some-config-value'),
   };
 
+  const mockTokenService = {
+    generateTokens: jest.fn().mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      user: {
+        _id: 'userId123',
+        email: 'test@example.com',
+        username: 'testuser',
+        displayName: 'Test User',
+        avatar: null,
+        status: 'online',
+      },
+    }),
+    revokeRefreshToken: jest.fn().mockResolvedValue(undefined),
+    generateTokensWithAtomicRotation: jest.fn().mockResolvedValue({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+      user: {
+        _id: 'userId123',
+        email: 'test@example.com',
+        username: 'testuser',
+        displayName: 'Test User',
+        avatar: null,
+        status: 'online',
+      },
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -50,6 +77,10 @@ describe('AuthService', () => {
         {
           provide: EventEmitter2,
           useValue: { emit: jest.fn() },
+        },
+        {
+          provide: TokenService,
+          useValue: mockTokenService,
         },
       ],
     }).compile();

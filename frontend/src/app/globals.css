@@ -1,3 +1,4 @@
+
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
@@ -126,24 +127,24 @@
     @apply border-border outline-ring/50;
   }
   body {
-    background-color: #020617; /* Specific instruction from the template */
+    background-color: #0e0e0e; /* Aurelian Noir surface-container-lowest */
     @apply text-on-surface font-body-md text-body-md antialiased overflow-hidden flex selection:bg-secondary selection:text-on-secondary;
   }
   
-  /* Custom scrollbar for clean UI */
+  /* Custom scrollbar for premium feel */
   ::-webkit-scrollbar { 
-    width: 4px; 
-    height: 4px;
+    width: 6px; 
+    height: 6px;
   }
   ::-webkit-scrollbar-track { 
     background: transparent; 
   }
   ::-webkit-scrollbar-thumb { 
-    background: rgba(255, 255, 255, 0.1); 
-    border-radius: 4px; 
+    background: #3a3939;
+    border-radius: 10px; 
   }
   ::-webkit-scrollbar-thumb:hover { 
-    background: rgba(255, 255, 255, 0.2); 
+    background: #494949; 
   }
 }
 
@@ -186,6 +187,29 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(229, 228, 226, 0.1);
 }
+
+/* Aurelian Noir Chat Bubbles */
+.bubble-received {
+  background: #201f1f;
+  border: 1px solid rgba(77, 70, 53, 0.3);
+  color: #e5e2e1;
+  border-bottom-left-radius: 4px;
+}
+
+.bubble-sent {
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  color: #e5e2e1;
+  border-bottom-right-radius: 4px;
+}
+
+.glass-header {
+  background: rgba(19, 19, 19, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(77, 70, 53, 0.3);
+}
+
 .metallic-gradient {
   background: linear-gradient(135deg, #d4af37 0%, #f2ca50 50%, #d4af37 100%);
 }
@@ -212,6 +236,19 @@
   background: linear-gradient(45deg, #d4af37, transparent, #d4af37);
   z-index: -1;
   border-radius: inherit;
+}
+
+.double-border-container {
+  position: relative;
+  padding: 2px;
+}
+.double-border-container::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 /* Force hide Next.js development build indicator */

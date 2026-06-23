@@ -5,7 +5,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { Header } from '@/components/layout/Header';
 import CallOverlay from '@/components/calls/CallOverlay';
 import { cn } from '@/lib/utils';
 import { Home, Search, Compass, MessageSquare, Bell } from 'lucide-react';
@@ -37,7 +36,6 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background w-full">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 relative z-20 bg-background/50">
-        <Header />
         <main className="flex-1 overflow-y-auto relative pb-14 md:pb-0">
           {children}
         </main>

@@ -38,7 +38,7 @@ export class SearchController {
     @Query('communityId') communityId?: string,
     @Query('limit') limit?: number,
   ) {
-    const results = await this.searchService.unifiedSearch(q, req.user.id, {
+    const results = await this.searchService.unifiedSearch(q, req.user.userId, {
       types: types ? types.split(',').map((t) => t.trim()) : undefined,
       conversationId,
       communityId,
@@ -76,7 +76,7 @@ export class SearchController {
   ) {
     const data = await this.searchService.searchUsers(
       query,
-      req.user.id,
+      req.user.userId,
       limit ? Number(limit) : 20,
     );
     return data;
@@ -110,7 +110,7 @@ export class SearchController {
   ) {
     const data = await this.searchService.searchKnowledge(
       query,
-      req.user.id,
+      req.user.userId,
       communityId,
       limit ? Number(limit) : 20,
     );

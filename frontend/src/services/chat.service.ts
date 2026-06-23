@@ -16,6 +16,24 @@ export const chatService = {
   // Search
   searchUsers: async (query: string): Promise<SearchUserResult[]> => {
     const res = await api.get(`/search/users?q=${encodeURIComponent(query)}`);
+    const data = res?.data || res;
+    return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+  },
+
+  searchCommunities: async (query: string): Promise<any> => {
+    const res = await api.get(`/search/communities?q=${encodeURIComponent(query)}`);
+    const data = res?.data || res;
+    const extractedData = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+    return extractedData;
+  },
+
+  markAsRead: async (conversationId: string): Promise<any> => {
+    const res = await api.post(`/messages/${conversationId}/read`);
+    return res?.data || res;
+  },
+
+  reactToMessage: async (conversationId: string, messageId: string, emoji: string): Promise<any> => {
+    const res = await api.post(`/messages/${conversationId}/${messageId}/react`, { emoji });
     return res?.data || res;
   },
 
@@ -25,10 +43,11 @@ export const chatService = {
     const res = await api.get(`/conversations${query}`);
     const data = res?.data || res;
     // Cache conversations in background
-    if (data && Array.isArray(data)) {
-      cacheConversations(data).catch(console.error);
-    } else if (data && data.data && Array.isArray(data.data)) {
-      cacheConversations(data.data).catch(console.error);
+    const convsArray = Array.isArray(data) ? data : 
+                      (Array.isArray(data?.data) ? data.data : 
+                      (Array.isArray(data?.data?.data) ? data.data.data : []));
+    if (convsArray.length > 0) {
+      cacheConversations(convsArray).catch(console.error);
     }
     return data;
   },
@@ -50,16 +69,16 @@ export const chatService = {
     return chatService.createGroupConversation(payload.name, payload.participantIds);
   },
 
-  // Messages
   getMessages: async (conversationId: string, cursor?: string): Promise<any> => {
     const query = cursor ? `?cursor=${cursor}` : '';
     const res = await api.get(`/messages/${conversationId}${query}`);
     const data = res?.data || res;
     // Cache messages in background
-    if (data && Array.isArray(data)) {
-      cacheMessages(data).catch(console.error);
-    } else if (data && data.data && Array.isArray(data.data)) {
-      cacheMessages(data.data).catch(console.error);
+    const msgsArray = Array.isArray(data) ? data : 
+                      (Array.isArray(data?.data) ? data.data : 
+                      (Array.isArray(data?.data?.data) ? data.data.data : []));
+    if (msgsArray.length > 0) {
+      cacheMessages(msgsArray).catch(console.error);
     }
     return data;
   },

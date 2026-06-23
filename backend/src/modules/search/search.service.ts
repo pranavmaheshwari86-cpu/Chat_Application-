@@ -11,6 +11,7 @@ import {
   KnowledgeDocument,
   KnowledgeDocumentDoc,
 } from '../knowledge/schemas/knowledge-document.schema';
+import { escapeRegExp } from '../../common/utils/crypto.util';
 
 @Injectable()
 export class SearchService {
@@ -92,8 +93,9 @@ export class SearchService {
   }
 
   async searchMessages(query: string, conversationId?: string, limit = 20) {
+    const safeQuery = String(query);
     const searchFilter: any = {
-      $text: { $search: query },
+      $text: { $search: safeQuery },
       isDeleted: false,
     };
 
@@ -112,12 +114,9 @@ export class SearchService {
     return messages;
   }
 
-  private escapeRegExp(string: string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-  }
-
   async searchUsers(query: string, currentUserId?: string, limit = 20) {
-    const escapedQuery = this.escapeRegExp(query);
+    const safeQuery = String(query);
+    const escapedQuery = escapeRegExp(safeQuery);
     const regex = new RegExp(escapedQuery, 'i');
 
     const filter: any = {
@@ -131,9 +130,7 @@ export class SearchService {
     const users = await this.userModel
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       .find(filter)
-      .select(
-        'username displayName avatar status isVerified headline accountType trustScore',
-      )
+      .select('username displayName avatar status isVerified headline')
       .limit(limit)
       .exec();
 
@@ -141,7 +138,8 @@ export class SearchService {
   }
 
   async searchCommunities(query: string, limit = 20) {
-    const escapedQuery = this.escapeRegExp(query);
+    const safeQuery = String(query);
+    const escapedQuery = escapeRegExp(safeQuery);
     const regex = new RegExp(escapedQuery, 'i');
 
     return this.communityModel
@@ -159,8 +157,9 @@ export class SearchService {
     communityId?: string,
     limit = 20,
   ) {
+    const safeQuery = String(query);
     const filter: any = {
-      $text: { $search: query },
+      $text: { $search: safeQuery },
       $or: [
         { authorId: new Types.ObjectId(userId) },
         { isPublic: true },

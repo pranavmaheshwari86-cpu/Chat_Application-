@@ -5,6 +5,7 @@ import { Message } from './schemas/message.schema';
 import { Conversation } from '../conversations/schemas/conversation.schema';
 import { ChatGateway } from '../../gateway/chat.gateway';
 import { Types } from 'mongoose';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 
@@ -49,6 +50,10 @@ describe('MessagesService', () => {
     }),
   };
 
+  const mockEventEmitter = {
+    emit: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -68,6 +73,10 @@ describe('MessagesService', () => {
         {
           provide: getConnectionToken(),
           useValue: mockConnection,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: mockEventEmitter,
         },
       ],
     }).compile();

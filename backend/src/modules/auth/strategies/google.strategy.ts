@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
@@ -15,10 +15,17 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: clientSecret || 'not-configured',
       callbackURL: callbackURL || '/api/auth/google/callback',
       scope: ['email', 'profile'],
+      state: false,
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
+  authorizationParams(): Record<string, string> {
+    return {
+      access_type: 'offline',
+      prompt: 'select_account',
+    };
+  }
+
   async validate(
     accessToken: string,
     refreshToken: string,
@@ -27,18 +34,21 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ): Promise<any> {
     const { name, emails, photos, id } = profile;
 
-    // We just return the profile data, the actual logic is handled in the controller/service
+    const email = emails?.[0]?.value;
+    if (!email) {
+      return done(
+        new UnauthorizedException('Google account must have a verified email'),
+        false,
+      );
+    }
+
     const user = {
-      email: emails[0].value,
-
-      firstName: name.givenName,
-
-      lastName: name.familyName,
-
-      displayName: profile.displayName,
-
-      picture: photos[0].value,
-
+      email,
+      firstName: name?.givenName || null,
+      lastName: name?.familyName || null,
+      displayName:
+        profile.displayName || name?.givenName || email.split('@')[0],
+      picture: photos?.[0]?.value || null,
       providerId: id,
       provider: 'google',
       accessToken,

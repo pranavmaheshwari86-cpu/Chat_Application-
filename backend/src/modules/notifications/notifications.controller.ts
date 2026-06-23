@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Patch, Param, Query } from '@nestjs/common';
-import type { AuthUser, JwtPayload } from '@chat/shared';
+import type { AuthUser } from '@chat/shared';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';

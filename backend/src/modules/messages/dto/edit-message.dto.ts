@@ -8,7 +8,7 @@ export class EditMessageDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(8000)
-  @Transform(({ value }) =>
+  @Transform(({ value }): string =>
     typeof value === 'string' ? sanitizeHtml(value) : value,
   )
   content: string;

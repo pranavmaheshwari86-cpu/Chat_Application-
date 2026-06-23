@@ -6,8 +6,11 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { WsException } from '@nestjs/websockets';
 import { AuthenticatedSocket } from '@chat/shared';
+import { User, UserDocument } from '../../modules/users/schemas/user.schema';
 
 @Injectable()
 export class WsAuthGuard implements CanActivate {
@@ -16,12 +19,12 @@ export class WsAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient<AuthenticatedSocket>();
 
-    // Check if client is already authenticated from connection handshake
     if (client.user) {
       return true;
     }
@@ -44,14 +47,18 @@ export class WsAuthGuard implements CanActivate {
         secret: this.configService.get<string>('jwt.accessSecret'),
       });
 
-      // Attach user to socket
+      const user = await this.userModel
+        .findById(payload.sub)
+        .select('isBanned')
+        .exec();
+      if (user?.isBanned) {
+        throw new WsException('Account has been suspended');
+      }
+
       client.user = {
         userId: payload.sub,
-
         email: payload.email,
-
         username: payload.username,
-
         displayName: payload.displayName,
       };
 

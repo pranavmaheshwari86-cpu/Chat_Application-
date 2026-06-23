@@ -1,13 +1,37 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
+import { AI_MODELS } from '../../common/constants/app.constants';
+
+// Zod schemas for AI output validation
+const SmartRepliesSchema = z.array(z.string().min(1).max(200)).length(3);
+const TranslationSchema = z.string().min(1).max(5000);
+const ModerationSchema = z.object({
+  isToxic: z.boolean(),
+  reason: z.string().optional(),
+});
+const KnowledgeExtractionSchema = z.array(
+  z.object({
+    type: z.enum(['decision', 'task', 'event', 'project', 'milestone']),
+    title: z.string().min(1).max(100),
+    content: z.string().min(1).max(2000),
+  }),
+);
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly openRouterApiUrl =
     'https://openrouter.ai/api/v1/chat/completions';
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
+
+  // Circuit breaker state
+  private circuitBreakerState: 'closed' | 'open' | 'half-open' = 'closed';
+  private circuitBreakerFailures = 0;
+  private readonly CIRCUIT_BREAKER_THRESHOLD = 5;
+  private readonly CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute
+  private circuitBreakerLastFailure = 0;
 
   constructor(private configService: ConfigService) {
     const geminiKey = this.configService.get<string>('GEMINI_API_KEY');
@@ -16,7 +40,70 @@ export class AiService {
     }
   }
 
+  private recordSuccess(): void {
+    this.circuitBreakerFailures = 0;
+    this.circuitBreakerState = 'closed';
+  }
+
+  private recordFailure(): void {
+    this.circuitBreakerFailures++;
+    this.circuitBreakerLastFailure = Date.now();
+    if (this.circuitBreakerFailures >= this.CIRCUIT_BREAKER_THRESHOLD) {
+      this.circuitBreakerState = 'open';
+      this.logger.error(
+        `Circuit breaker OPENED after ${this.CIRCUIT_BREAKER_THRESHOLD} consecutive failures`,
+      );
+    }
+  }
+
+  private checkCircuitBreaker(): boolean {
+    if (this.circuitBreakerState === 'open') {
+      if (
+        Date.now() - this.circuitBreakerLastFailure >
+        this.CIRCUIT_BREAKER_TIMEOUT
+      ) {
+        this.circuitBreakerState = 'half-open';
+        this.logger.warn('Circuit breaker HALF-OPEN - allowing test request');
+        return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  private parseJsonSafely<T>(
+    raw: string,
+    schema: z.ZodSchema<T>,
+    fallback: T,
+    methodName: string,
+  ): T {
+    try {
+      const cleaned = raw
+        .replace(/```json/g, '')
+        .replace(/```/g, '')
+        .trim();
+      const parsed = JSON.parse(cleaned);
+      return schema.parse(parsed);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `AI output validation failed in ${methodName}: ${errorMsg}. Raw response: ${raw.substring(0, 500)}`,
+      );
+      // In production, we should alert/monitor this - for now return fallback but log prominently
+      return fallback;
+    }
+  }
+
   private async callOpenRouter(messages: any[]): Promise<string> {
+    // Circuit breaker check
+    if (!this.checkCircuitBreaker()) {
+      this.logger.error('Circuit breaker OPEN - rejecting AI request');
+      throw new HttpException(
+        'AI service temporarily unavailable (circuit breaker open)',
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
     const groqKey = this.configService.get<string>('GROQ_API_KEY');
     if (groqKey) {
       try {
@@ -29,13 +116,14 @@ export class AiService {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'llama-3.3-70b-versatile',
+              model: AI_MODELS.GROQ_CHAT,
               messages,
             }),
           },
         );
         if (response.ok) {
           const data = await response.json();
+          this.recordSuccess();
           return data.choices[0].message.content;
         } else {
           this.logger.warn(`Groq failed: ${await response.text()}`);
@@ -58,19 +146,25 @@ export class AiService {
             .join('\n\n') + '\n\nASSISTANT:';
         try {
           const response = await this.ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: AI_MODELS.GEMINI_CONTENT,
             contents: prompt,
           });
-          if (response.text) return String(response.text);
+          if (response.text) {
+            this.recordSuccess();
+            return String(response.text);
+          }
         } catch (e1: any) {
           this.logger.warn(
             `Gemini 2.5 failed, falling back to 1.5: ${String(e1.message || 'unknown error')}`,
           );
           const responseFallback = await this.ai.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: AI_MODELS.GEMINI_CONTENT_FALLBACK,
             contents: prompt,
           });
-          if (responseFallback.text) return responseFallback.text;
+          if (responseFallback.text) {
+            this.recordSuccess();
+            return responseFallback.text;
+          }
         }
       } catch (error) {
         this.logger.error(
@@ -87,13 +181,7 @@ export class AiService {
       return 'Hello! I am your FlashChat AI Assistant (Mock Mode). To get real AI responses, please configure your OPENROUTER_API_KEY in the server/.env file.';
     }
 
-    const fallbackModels = [
-      'google/gemini-2.5-flash-lite-preview-02-05:free',
-      'qwen/qwen-2.5-72b-instruct:free',
-      'meta-llama/llama-3.2-3b-instruct:free',
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'huggingfaceh4/zephyr-7b-beta:free',
-    ];
+    const fallbackModels = AI_MODELS.OPENROUTER_FALLBACKS;
 
     let lastError = null;
 
@@ -117,7 +205,7 @@ export class AiService {
 
         if (response.ok) {
           const data = await response.json();
-
+          this.recordSuccess();
           return data.choices[0].message.content;
         } else {
           lastError = await response.text();
@@ -134,6 +222,7 @@ export class AiService {
       }
     }
 
+    this.recordFailure();
     this.logger.error(`All fallback models failed. Last error: ${lastError}`);
     throw new HttpException(
       'AI service temporarily unavailable (all providers rate-limited)',
@@ -152,17 +241,12 @@ export class AiService {
     ];
 
     const result = await this.callOpenRouter(messages);
-    try {
-      const cleaned = result
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
-
-      return JSON.parse(cleaned);
-    } catch (e) {
-      this.logger.error(`Failed to parse smart replies: ${result}`);
-      return ['Yes', 'No', 'Thanks!'];
-    }
+    return this.parseJsonSafely(
+      result,
+      SmartRepliesSchema,
+      ['Yes', 'No', 'Thanks!'],
+      'generateSmartReplies',
+    );
   }
 
   async translateMessage(
@@ -177,7 +261,13 @@ export class AiService {
       { role: 'user', content },
     ];
 
-    return this.callOpenRouter(messages);
+    const result = await this.callOpenRouter(messages);
+    return this.parseJsonSafely(
+      result,
+      TranslationSchema,
+      content,
+      'translateMessage',
+    );
   }
 
   async moderateContent(
@@ -193,19 +283,12 @@ export class AiService {
     ];
 
     const result = await this.callOpenRouter(messages);
-    try {
-      const cleaned = result
-        .replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
-
-      const parsed = JSON.parse(cleaned);
-
-      return { isToxic: !!parsed.isToxic, reason: parsed.reason };
-    } catch (e) {
-      this.logger.error(`Failed to parse moderation result: ${result}`);
-      return { isToxic: false };
-    }
+    return this.parseJsonSafely(
+      result,
+      ModerationSchema,
+      { isToxic: false },
+      'moderateContent',
+    );
   }
 
   async generateResponse(input: string | any[], user?: any): Promise<string> {
@@ -242,7 +325,53 @@ Here are the features and how users can use them:
 Always answer questions confidently based on this knowledge base. If asked how to do something in the app, give step-by-step simple instructions based on the above points.`;
 
     if (user && user.displayName) {
-      systemPrompt += ` You are talking to a user named ${user.displayName}.`;
+      // Strict allowlist sanitization for prompt injection prevention
+      // Only allow alphanumeric, spaces, hyphens, underscores - no special chars
+      const rawName = String(user.displayName);
+      const safeName = rawName
+        .replace(/[^a-zA-Z0-9 _-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 30);
+
+      // Additional check: reject if contains instruction-like patterns (check RAW name for detection)
+      const instructionPatterns = [
+        /ignore\s+(previous|above|all)\s+instructions?/i,
+        /forget\s+(everything|previous|above)/i,
+        /system\s*:/i,
+        /assistant\s*:/i,
+        /user\s*:/i,
+        /<\|.*\|>/,
+        /\[INST\]/i,
+        /<<SYS>>/i,
+        /prompt/i,
+        /instruction/i,
+        /role\s*:/i,
+        /you\s+are\s+/i,
+        /act\s+as\s+/i,
+        /pretend\s+/i,
+        /simulate\s+/i,
+        /roleplay/i,
+        /character\s*:/i,
+        /persona\s*:/i,
+        /\[.*\]/,
+        /\{.*\}/,
+        /```/,
+        /\\n\\n/i,
+      ];
+      const hasInjectionAttempt = instructionPatterns.some((p) =>
+        p.test(rawName),
+      );
+
+      // Only use name if it passes sanitization AND is valid (>= 2 chars, not just whitespace)
+      if (
+        safeName &&
+        !hasInjectionAttempt &&
+        safeName.length >= 2 &&
+        /[a-zA-Z0-9]/.test(safeName)
+      ) {
+        systemPrompt += ` You are talking to a user named ${safeName}.`;
+      }
     }
 
     messages.push({ role: 'system', content: systemPrompt });
@@ -271,7 +400,7 @@ Always answer questions confidently based on this knowledge base. If asked how t
       );
     try {
       const response = await this.ai.models.embedContent({
-        model: 'text-embedding-004',
+        model: AI_MODELS.GEMINI_EMBEDDING,
         contents: text,
       });
       return response.embeddings![0].values!;
@@ -284,7 +413,9 @@ Always answer questions confidently based on this knowledge base. If asked how t
     }
   }
 
-  async extractKnowledge(text: string): Promise<any[]> {
+  async extractKnowledge(
+    text: string,
+  ): Promise<Array<{ type: string; title: string; content: string }>> {
     if (!this.ai)
       throw new HttpException(
         'Gemini API key not configured',
@@ -304,16 +435,19 @@ Text:
 ${text}`;
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: AI_MODELS.GEMINI_CONTENT,
         contents: prompt,
       });
 
-      const cleaned = response
-        .text!.replace(/```json/g, '')
-        .replace(/```/g, '')
-        .trim();
+      const responseText = response.text;
+      if (!responseText) return [];
 
-      return JSON.parse(cleaned);
+      return this.parseJsonSafely(
+        responseText,
+        KnowledgeExtractionSchema,
+        [],
+        'extractKnowledge',
+      );
     } catch (error) {
       this.logger.error(`Knowledge extraction failed: ${error.message}`);
       return [];

@@ -19,6 +19,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useChatStore, type Conversation } from "@/store/useChatStore";
 import { cn, formatTime, generateAvatarInitials } from "@/lib/utils";
 import { chatService } from "@/services/chat.service";
+import Image from "next/image";
 
 interface SidebarProps {
   onSelectConversation: (id: string) => void;
@@ -28,25 +29,35 @@ interface SidebarProps {
 
 export default function Sidebar({ onSelectConversation, isLoading = false, onNewChatClick }: SidebarProps) {
   const { user, logout } = useAuthStore();
-  const { conversations, activeConversationId, setActiveConversation } = useChatStore();
+  const { conversations, activeConversationId, setActiveConversation, typingUsers } = useChatStore();
   const [searchQuery, setSearchQuery] = useState("");
 
   const getDirectName = useCallback((conv: Conversation): string => {
-    const currentUserId = user?._id || (user as any)?.id || (user as any)?.userId;
+    const currentUserId = user?._id;
     if (conv.type === "group") return conv.name || "Group";
+    if (!conv.members || !Array.isArray(conv.members)) return "Unknown";
     const other = conv.members.find(
-      (m: any) => (m.userId?._id || m.userId?.id || m.userId) !== currentUserId
+      (m: any) => (m.userId?._id || m.userId) !== currentUserId
     );
-    return other?.userId?.displayName || other?.userId?.username || "Unknown";
+    const otherUser = other?.userId;
+    if (typeof otherUser === 'object' && otherUser !== null) {
+      return otherUser.displayName || otherUser.username || "Unknown";
+    }
+    return "Unknown";
   }, [user]);
 
   const getDirectAvatar = useCallback((conv: Conversation): string | undefined => {
-    const currentUserId = user?._id || (user as any)?.id || (user as any)?.userId;
+    const currentUserId = user?._id;
     if (conv.type === "group") return conv.avatar;
+    if (!conv.members || !Array.isArray(conv.members)) return undefined;
     const other = conv.members.find(
-      (m: any) => (m.userId?._id || m.userId?.id || m.userId) !== currentUserId
+      (m: any) => (m.userId?._id || m.userId) !== currentUserId
     );
-    return other?.userId?.avatar;
+    const otherUser = other?.userId;
+    if (typeof otherUser === 'object' && otherUser !== null) {
+      return otherUser.avatar;
+    }
+    return undefined;
   }, [user]);
 
   const filteredConversations = useMemo(() => {
@@ -69,10 +80,7 @@ export default function Sidebar({ onSelectConversation, isLoading = false, onNew
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#E2B859] to-[#9A7B33] shadow-sm">
-            <MessageSquare className="h-4.5 w-4.5 text-[#101415] fill-current" />
-          </div>
-          <h1 className="text-[19px] font-semibold tracking-tight text-[#e1e3e4] font-heading">FlashChat</h1>
+          <h1 className="text-[19px] font-semibold tracking-tight text-[#e1e3e4] font-heading">Conversations</h1>
         </div>
         <div className="flex items-center gap-1.5">
           <Button variant="ghost" size="icon" className="h-9 w-9 text-[#8a9296] hover:text-[#e1e3e4] hover:bg-[#191c1e] rounded-full transition-colors">
@@ -130,9 +138,12 @@ export default function Sidebar({ onSelectConversation, isLoading = false, onNew
               const lastMsg = conv.lastMessage;
               const currentUserId = user?._id || (user as any)?.id || (user as any)?.userId;
               
-              const isUnread = lastMsg && 
-                (lastMsg.senderId?._id || lastMsg.senderId?.id || lastMsg.senderId) !== currentUserId && 
-                (!lastMsg.readBy || !lastMsg.readBy.includes(currentUserId));
+              const member = conv.members?.find((m: any) => String(m.userId) === String(currentUserId) || String(m.userId?._id) === String(currentUserId));
+              const unreadCount = member?.unreadCount || 0;
+              const isUnread = unreadCount > 0;
+              
+              const typingUsersInConv = typingUsers[conv._id] || [];
+              const isTyping = typingUsersInConv.length > 0;
 
               return (
                 <motion.button
@@ -165,12 +176,21 @@ export default function Sidebar({ onSelectConversation, isLoading = false, onNew
                     <div className="flex items-center justify-between mb-0.5">
                       <span className={cn("text-[15px] truncate", isActive ? "text-[#e1e3e4]" : "text-[#c0c8cb] group-hover:text-[#e1e3e4]", isUnread ? "font-bold text-[#e1e3e4]" : "font-medium")}>{name}</span>
                       {lastMsg && (
-                        <span className={cn("text-[11px] ml-2 whitespace-nowrap", isUnread ? "font-bold text-[#e1e3e4]" : "font-medium text-[#8a9296]")}>
-                          {formatTime(lastMsg.createdAt)}
-                        </span>
+                        <div className="flex items-center gap-2 ml-2">
+                          {isUnread && <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-[#131313] bg-[#E2B859] rounded-full shadow-[0_0_8px_rgba(226,184,89,0.4)]">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+                          <span className={cn("text-[11px] whitespace-nowrap", isUnread ? "font-bold text-[#e1e3e4]" : "font-medium text-[#8a9296]")}>
+                            {formatTime(lastMsg.createdAt)}
+                          </span>
+                        </div>
                       )}
                     </div>
-                    {lastMsg && (
+                    {isTyping ? (
+                      <p className="text-[13px] font-medium text-emerald-400 italic truncate animate-pulse">
+                        {typingUsersInConv.length === 1 && typingUsersInConv[0] 
+                          ? `${typingUsersInConv[0].username} is typing...` 
+                          : `${typingUsersInConv.length} people are typing...`}
+                      </p>
+                    ) : lastMsg && (
                       <p className={cn("text-[13px] truncate", 
                         isUnread ? "font-bold text-[#e1e3e4]" : (isActive ? "text-[#8a9296]" : "text-[#8a9296]/80")
                       )}>

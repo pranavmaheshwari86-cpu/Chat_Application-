@@ -1,9 +1,9 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsMongoId, IsIn } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class MessageQueryDto {
   @ApiPropertyOptional()
-  @IsString()
+  @IsMongoId()
   @IsOptional()
   cursor?: string;
 
@@ -15,5 +15,6 @@ export class MessageQueryDto {
   @ApiPropertyOptional({ enum: ['before', 'after'] })
   @IsString()
   @IsOptional()
+  @IsIn(['before', 'after'])
   direction?: 'before' | 'after';
 }

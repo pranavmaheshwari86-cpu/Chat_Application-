@@ -15,6 +15,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
+    const isProduction = process.env.NODE_ENV === 'production';
 
     let message = 'Internal server error';
     let details = null;
@@ -29,7 +30,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       message = exRes.message || message;
 
-      details = exRes.error || null;
+      details = isProduction ? null : exRes.error || null;
     }
 
     response.status(status).json({
@@ -37,7 +38,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       error: {
         code: status,
         message,
-
         details,
         path: request.url,
         timestamp: new Date().toISOString(),

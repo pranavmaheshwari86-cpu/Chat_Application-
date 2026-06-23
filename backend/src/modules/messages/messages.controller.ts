@@ -7,8 +7,9 @@ import {
   Param,
   Delete,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
-import type { AuthUser, JwtPayload } from '@chat/shared';
+import type { AuthUser } from '@chat/shared';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MessagesService } from './messages.service';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -38,6 +39,15 @@ export class MessagesController {
     return this.messagesService.getMessages(conversationId, user.userId, query);
   }
 
+  @Post(':conversationId/read')
+  @ApiOperation({ summary: 'Mark all messages in conversation as read' })
+  markAsRead(
+    @Param('conversationId') conversationId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.messagesService.markAsRead(conversationId, user.userId);
+  }
+
   @Post(':conversationId')
   @ApiOperation({ summary: 'Send a message (REST fallback)' })
   sendMessage(
@@ -65,6 +75,23 @@ export class MessagesController {
       conversationId,
       user.userId,
       editMessageDto,
+    );
+  }
+
+  @Post(':conversationId/:messageId/react')
+  @ApiOperation({ summary: 'React to a message' })
+  reactToMessage(
+    @Param('conversationId') conversationId: string,
+    @Param('messageId') messageId: string,
+    @CurrentUser() user: AuthUser,
+    @Body('emoji') emoji: string,
+  ) {
+    if (!emoji) throw new BadRequestException('Emoji is required');
+    return this.messagesService.reactToMessage(
+      messageId,
+      conversationId,
+      user.userId,
+      emoji,
     );
   }
 

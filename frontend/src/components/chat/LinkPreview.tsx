@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
 
@@ -22,8 +22,7 @@ export default function LinkPreview({ url }: LinkPreviewProps) {
     let isMounted = true;
     const fetchPreview = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-        const res = await axios.get(`${apiUrl}/messages/preview/link`, {
+        const res = await api.get('/messages/preview/link', {
           params: { url }
         });
         if (isMounted && res.data && (res.data.title || res.data.description || res.data.image)) {

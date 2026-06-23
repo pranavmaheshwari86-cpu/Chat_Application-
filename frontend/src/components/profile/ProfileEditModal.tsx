@@ -29,7 +29,6 @@ export default function ProfileEditModal({ isOpen, onClose }: ProfileEditModalPr
   const [headline, setHeadline] = useState(user?.headline || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [location, setLocation] = useState(user?.location || "");
-  const [skills, setSkills] = useState<string>(user?.skills?.join(", ") || "");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -63,14 +62,13 @@ export default function ProfileEditModal({ isOpen, onClose }: ProfileEditModalPr
         headline,
         bio,
         location,
-        skills: skills.split(",").map(s => s.trim()).filter(Boolean),
         avatar: avatarUrl,
       };
 
       const res = await api.patch("/users/me", updateData);
       
       // Update local store
-      updateUser(res.data.data);
+      updateUser(res.data?.data || res.data);
       
       toast.success("Profile updated successfully!");
       onClose();
@@ -153,16 +151,6 @@ export default function ProfileEditModal({ isOpen, onClose }: ProfileEditModalPr
                 value={location} 
                 onChange={(e) => setLocation(e.target.value)} 
                 placeholder="San Francisco, CA"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="skills">Skills (comma separated)</Label>
-              <Input 
-                id="skills" 
-                value={skills} 
-                onChange={(e) => setSkills(e.target.value)} 
-                placeholder="React, Node.js, AI, Design"
               />
             </div>
           </div>

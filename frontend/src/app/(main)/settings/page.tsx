@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/store/useAuthStore";
+import api from "@/services/api";
+import { toast } from "sonner";
 import { generateAvatarInitials } from "@/lib/utils";
 
 export default function SettingsPage() {
@@ -36,10 +38,20 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 800));
-    updateUser(form);
-    setIsSaving(false);
+    try {
+      const res = await api.patch('/users/me', {
+        displayName: form.displayName,
+        username: form.username,
+        bio: form.bio,
+      });
+      updateUser(res.data?.data || res.data);
+      toast.success('Settings saved successfully');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to save settings';
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

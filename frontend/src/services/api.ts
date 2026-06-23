@@ -5,6 +5,16 @@ import { useAuthStore } from '../store/useAuthStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// Separate axios instance for token refresh to avoid interceptor loops
+const refreshApi = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+  timeout: 10000, // 10s timeout for refresh
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 export const api = axios.create({
   baseURL: API_URL,
   withCredentials: true,
@@ -15,16 +25,21 @@ export const api = axios.create({
 
 let isRefreshing = false;
 let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: any) => void }> = [];
+let refreshAttempts = 0;
+const MAX_REFRESH_ATTEMPTS = 3;
 
 const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach((prom) => {
+  // Copy queue to avoid stale closure issues
+  const queue = [...failedQueue];
+  failedQueue = [];
+  
+  queue.forEach((prom) => {
     if (error) {
       prom.reject(error);
     } else {
       prom.resolve(token as string);
     }
   });
-  failedQueue = [];
 };
 
 api.interceptors.request.use(
@@ -59,12 +74,18 @@ api.interceptors.response.use(
           .catch((err) => Promise.reject(err));
       }
 
+      if (refreshAttempts >= MAX_REFRESH_ATTEMPTS) {
+        useAuthStore.getState().logout();
+        return Promise.reject(new Error('Max refresh attempts exceeded'));
+      }
+
       originalRequest._retry = true;
       isRefreshing = true;
+      refreshAttempts++;
 
       try {
-        // Use a separate axios instance or fetch to avoid interceptor loop
-        const { data } = await axios.post(`${API_URL}/auth/refresh`, {}, { withCredentials: true });
+        // Use separate refreshApi instance to avoid interceptor loop
+        const { data } = await refreshApi.post('/auth/refresh', {});
         
         // Backend TransformInterceptor wraps response as { success, data: { accessToken } }
         const newAccessToken = data?.data?.accessToken || data?.accessToken;
@@ -75,6 +96,7 @@ api.interceptors.response.use(
         
         useAuthStore.getState().setAccessToken(newAccessToken);
         processQueue(null, newAccessToken);
+        refreshAttempts = 0; // Reset on success
         
         if (originalRequest.headers) {
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;

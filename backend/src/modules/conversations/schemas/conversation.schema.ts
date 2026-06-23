@@ -28,6 +28,7 @@ export class Conversation {
       joinedAt: { type: Date, default: Date.now },
       mutedUntil: { type: Date },
       isArchived: { type: Boolean, default: false },
+      unreadCount: { type: Number, default: 0 },
     },
   ])
   members: Record<string, any>[];
@@ -52,6 +53,12 @@ export class Conversation {
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   createdBy?: Types.ObjectId;
+
+  @Prop({ type: Boolean, default: false })
+  isE2E?: boolean;
+
+  @Prop({ unique: true, sparse: true })
+  directKey?: string;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

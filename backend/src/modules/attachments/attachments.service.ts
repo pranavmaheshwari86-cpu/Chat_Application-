@@ -3,20 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
 
-import * as fs from 'fs';
-import * as path from 'path';
-
 @Injectable()
 export class AttachmentsService {
   private readonly logger = new Logger(AttachmentsService.name);
 
   constructor(private configService: ConfigService) {
-    // Cloudinary config is optional locally
-    if (this.configService.get('cloudinary.apiKey') !== 'your-api-key') {
+    const apiKey = this.configService.get<string>('cloudinary.apiKey');
+    const apiSecret = this.configService.get<string>('cloudinary.apiSecret');
+    const cloudName = this.configService.get<string>('cloudinary.cloudName');
+    if (apiKey && apiSecret && cloudName) {
       cloudinary.config({
-        cloud_name: this.configService.get('cloudinary.cloudName'),
-        api_key: this.configService.get('cloudinary.apiKey'),
-        api_secret: this.configService.get('cloudinary.apiSecret'),
+        cloud_name: cloudName,
+        api_key: apiKey,
+        api_secret: apiSecret,
       });
     }
   }
@@ -25,13 +24,9 @@ export class AttachmentsService {
     file: Express.Multer.File,
     folder: string = 'flashchat/images',
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
-    if (
-      this.configService.get('cloudinary.apiKey') === 'your-api-key' ||
-      !this.configService.get('cloudinary.apiKey')
-    ) {
-      throw new Error(
-        'Cloudinary is not configured. Local uploads are disabled for security.',
-      );
+    const apiKey = this.configService.get<string>('cloudinary.apiKey');
+    if (!apiKey) {
+      throw new Error('Cloudinary is not configured. Uploads are disabled.');
     }
 
     return new Promise((resolve, reject) => {
@@ -58,13 +53,9 @@ export class AttachmentsService {
     file: Express.Multer.File,
     folder: string = 'flashchat/audio',
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
-    if (
-      this.configService.get('cloudinary.apiKey') === 'your-api-key' ||
-      !this.configService.get('cloudinary.apiKey')
-    ) {
-      throw new Error(
-        'Cloudinary is not configured. Local uploads are disabled for security.',
-      );
+    const apiKey = this.configService.get<string>('cloudinary.apiKey');
+    if (!apiKey) {
+      throw new Error('Cloudinary is not configured. Uploads are disabled.');
     }
 
     return new Promise((resolve, reject) => {
@@ -91,13 +82,9 @@ export class AttachmentsService {
     file: Express.Multer.File,
     folder: string = 'flashchat/files',
   ): Promise<UploadApiResponse | UploadApiErrorResponse> {
-    if (
-      this.configService.get('cloudinary.apiKey') === 'your-api-key' ||
-      !this.configService.get('cloudinary.apiKey')
-    ) {
-      throw new Error(
-        'Cloudinary is not configured. Local uploads are disabled for security.',
-      );
+    const apiKey = this.configService.get<string>('cloudinary.apiKey');
+    if (!apiKey) {
+      throw new Error('Cloudinary is not configured. Uploads are disabled.');
     }
 
     return new Promise((resolve, reject) => {

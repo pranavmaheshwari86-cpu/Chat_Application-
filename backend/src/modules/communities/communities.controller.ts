@@ -47,7 +47,7 @@ export class CommunitiesController {
     @Body() body: CreateCommunityDto,
   ) {
     const result = await this.communitiesService.createCommunity(
-      req.user.id,
+      req.user.userId,
       body.name,
       body.description,
     );
@@ -58,7 +58,7 @@ export class CommunitiesController {
   @ApiOperation({ summary: 'Get user communities' })
   async getCommunities(@Req() req: AuthenticatedRequest) {
     const communities = await this.communitiesService.getCommunitiesForUser(
-      req.user.id,
+      req.user.userId,
     );
     return { data: communities };
   }

@@ -9,6 +9,10 @@ export function buildCursorQuery(
   const { cursor, direction = 'before' } = params;
   if (!cursor) return baseQuery;
 
+  if (!Types.ObjectId.isValid(cursor)) {
+    return baseQuery;
+  }
+
   const cursorObjectId = new Types.ObjectId(cursor);
   const cursorFilter =
     direction === 'before'
@@ -18,7 +22,11 @@ export function buildCursorQuery(
   return { ...baseQuery, ...cursorFilter };
 }
 
-export function buildPaginatedResponse<T>(
+interface Identifiable {
+  _id: { toString(): string };
+}
+
+export function buildPaginatedResponse<T extends Identifiable>(
   data: T[],
   limit: number,
   total?: number,
@@ -26,15 +34,11 @@ export function buildPaginatedResponse<T>(
   const hasMore = data.length > limit;
   const items = hasMore ? data.slice(0, limit) : data;
 
-  // Assuming the items have an _id field. Need type casting or check.
-
-  const lastItem = items[items.length - 1] as any;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const lastItem = items[items.length - 1];
   const nextCursor = hasMore && lastItem ? lastItem._id.toString() : null;
 
   return {
     data: items,
-
     nextCursor,
     hasMore,
     total,

@@ -17,7 +17,7 @@ export class RelationshipsController {
   })
   async getRelationships(@Req() req: AuthenticatedRequest) {
     const relationships = await this.relationshipsService.getRelationships(
-      req.user.id,
+      req.user.userId,
     );
     return { data: relationships };
   }

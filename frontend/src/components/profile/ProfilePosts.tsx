@@ -17,7 +17,7 @@ interface PostData {
 
 interface ProfilePostsProps {
   userId: string;
-  isOwnProfile: boolean;
+  isOwnProfile?: boolean;
 }
 
 export default function ProfilePosts({ userId, isOwnProfile }: ProfilePostsProps) {
@@ -84,7 +84,8 @@ export default function ProfilePosts({ userId, isOwnProfile }: ProfilePostsProps
                 fill 
                 className="object-cover group-hover:scale-110 transition-transform duration-700" 
                 alt="Post Thumbnail" 
-                src={post.images[0] || "https://via.placeholder.com/400"}
+                src={post.images[0] || "/flashchat_logo.png"}
+                sizes="(max-width: 768px) 50vw, 33vw"
               />
               {/* Multiple images indicator */}
               {post.images.length > 1 && (

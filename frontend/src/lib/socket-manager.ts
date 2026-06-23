@@ -2,7 +2,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace('/api', '');
+// Derive socket URL from API URL robustly
+function getSocketUrl(): string {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  try {
+    const url = new URL(apiUrl);
+    // Use origin (protocol + host + port) for socket connection
+    // Validate it's a proper URL with protocol and host
+    if (!url.protocol || !url.host) {
+      throw new Error('Invalid URL');
+    }
+    return url.origin;
+  } catch {
+    // Fallback: remove /api suffix if present, then validate
+    const fallback = apiUrl.replace(/\/api\/?$/, '');
+    try {
+      const url = new URL(fallback);
+      if (url.protocol && url.host) {
+        return url.origin;
+      }
+    } catch {
+      // Ignore
+    }
+    // Final fallback
+    return 'http://localhost:3001';
+  }
+}
+
+const SOCKET_URL = getSocketUrl();
 
 interface SocketManagerOptions {
   onConnect?: () => void;
@@ -10,6 +37,11 @@ interface SocketManagerOptions {
   onMessageNew?: (payload: any) => void;
   onMessageEdited?: (payload: any) => void;
   onMessageDeleted?: (payload: any) => void;
+  onTypingActive?: (payload: any) => void;
+  onTypingStopped?: (payload: any) => void;
+  onMessageSeen?: (payload: any) => void;
+  onMessageDelivered?: (payload: any) => void;
+  onMessageReacted?: (payload: any) => void;
 }
 
 export class SocketManager {
@@ -23,6 +55,9 @@ export class SocketManager {
   private readonly backoffSteps = [1000, 2000, 4000, 8000, 16000, 30000];
   private reconnectTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private pongTimeoutTimer: NodeJS.Timeout | null = null;
+  private readonly PING_INTERVAL = 30000; // 30s
+  private readonly PONG_TIMEOUT = 10000; // 10s
 
   public connect(token: string, options: SocketManagerOptions) {
     if (this.socket?.connected || this.isConnecting) return;
@@ -72,6 +107,24 @@ export class SocketManager {
     this.socket.on('message:new', (payload) => this.options.onMessageNew?.(payload));
     this.socket.on('message:edited', (payload) => this.options.onMessageEdited?.(payload));
     this.socket.on('message:deleted', (payload) => this.options.onMessageDeleted?.(payload));
+    this.socket.on('typing:active', (payload) => this.options.onTypingActive?.(payload));
+    this.socket.on('typing:stopped', (payload) => this.options.onTypingStopped?.(payload));
+    this.socket.on('message:seen', (payload) => this.options.onMessageSeen?.(payload));
+    this.socket.on('message:delivered', (payload) => this.options.onMessageDelivered?.(payload));
+    this.socket.on('message:reacted', (payload) => this.options.onMessageReacted?.(payload));
+
+    // Heartbeat: handle server ping -> respond with pong
+    this.socket.on('ping', () => {
+      this.socket?.emit('pong');
+    });
+
+    // Heartbeat: handle pong response -> clear timeout
+    this.socket.on('pong', () => {
+      if (this.pongTimeoutTimer) {
+        clearTimeout(this.pongTimeoutTimer);
+        this.pongTimeoutTimer = null;
+      }
+    });
   }
 
   private scheduleReconnect() {
@@ -97,15 +150,32 @@ export class SocketManager {
     this.stopHeartbeat();
     this.heartbeatTimer = setInterval(() => {
       if (this.socket?.connected) {
-        this.socket.emit('presence:ping');
+        this.sendPingWithTimeout();
       }
-    }, 30000); // 30s heartbeat
+    }, this.PING_INTERVAL);
+  }
+
+  private sendPingWithTimeout() {
+    if (!this.socket?.connected) return;
+
+    // Send ping
+    this.socket.emit('ping');
+
+    // Set timeout for pong response
+    this.pongTimeoutTimer = setTimeout(() => {
+      console.warn('Pong timeout - connection may be dead, forcing reconnect');
+      this.socket?.disconnect(); // Will trigger reconnect logic
+    }, this.PONG_TIMEOUT);
   }
 
   private stopHeartbeat() {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
+    }
+    if (this.pongTimeoutTimer) {
+      clearTimeout(this.pongTimeoutTimer);
+      this.pongTimeoutTimer = null;
     }
   }
 

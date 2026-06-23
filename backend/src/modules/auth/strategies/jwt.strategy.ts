@@ -23,11 +23,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     const user = await this.userModel
       .findById(payload.sub)
-      .select('-passwordHash -refreshTokenHash')
+      .select('-passwordHash +refreshTokenHash')
       .exec();
 
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    if (!user || !user.refreshTokenHash) {
+      throw new UnauthorizedException('User not found or session invalidated');
+    }
+
+    if (user.isBanned) {
+      throw new UnauthorizedException('Account has been suspended');
     }
 
     return {
@@ -39,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       displayName: user.displayName,
       avatar: user.avatar,
       status: user.status,
+      role: user.role,
     };
   }
 }

@@ -6,12 +6,33 @@ import {
   validateSync,
   MinLength,
   IsOptional,
+  registerDecorator,
+  ValidationOptions,
 } from 'class-validator';
 
 enum Environment {
   Development = 'development',
   Production = 'production',
   Test = 'test',
+}
+
+function IsNotEmptyString(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'isNotEmptyString',
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: any) {
+          return typeof value === 'string' && value.trim().length > 0;
+        },
+        defaultMessage(args?: any) {
+          return `${args?.property || 'Field'} must be a non-empty string`;
+        },
+      },
+    });
+  };
 }
 
 class EnvironmentVariables {
@@ -22,27 +43,36 @@ class EnvironmentVariables {
   PORT: number;
 
   @IsString()
+  @IsNotEmptyString({ message: 'MONGODB_URI is required' })
   MONGODB_URI: string;
 
   @IsString()
+  @IsNotEmptyString({ message: 'REDIS_HOST is required' })
   REDIS_HOST: string;
 
   @IsNumber()
   REDIS_PORT: number;
 
   @IsString()
+  @IsNotEmptyString({
+    message: 'JWT_ACCESS_SECRET is required and cannot be empty',
+  })
   @MinLength(32, {
     message: 'JWT_ACCESS_SECRET must be at least 32 characters',
   })
   JWT_ACCESS_SECRET: string;
 
   @IsString()
+  @IsNotEmptyString({
+    message: 'JWT_REFRESH_SECRET is required and cannot be empty',
+  })
   @MinLength(32, {
     message: 'JWT_REFRESH_SECRET must be at least 32 characters',
   })
   JWT_REFRESH_SECRET: string;
 
   @IsString()
+  @IsNotEmptyString({ message: 'CLIENT_URL is required' })
   CLIENT_URL: string;
 
   @IsOptional()
@@ -63,8 +93,11 @@ export function validate(config: Record<string, unknown>) {
   });
 
   if (errors.length > 0) {
+    const messages = errors.map((error) => {
+      return `${error.property} - ${Object.values(error.constraints || {}).join(', ')}`;
+    });
     throw new Error(
-      `Environment variables validation failed: \n${errors.toString()}`,
+      `Environment variables validation failed:\n${messages.join('\n')}`,
     );
   }
   return validatedConfig;

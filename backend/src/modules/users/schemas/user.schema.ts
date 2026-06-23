@@ -5,6 +5,8 @@ export type UserDocument = User & Document;
 
 @Schema({ timestamps: true })
 export class User {
+  @Prop({ default: 0 })
+  tokenVersion: number;
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
@@ -174,3 +176,4 @@ export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ username: 'text', displayName: 'text' });
 UserSchema.index({ provider: 1, providerId: 1 }, { sparse: true });
+UserSchema.index({ blockedUsers: 1 });

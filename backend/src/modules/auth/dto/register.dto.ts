@@ -4,6 +4,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  Matches,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -26,9 +27,17 @@ export class RegisterDto {
   @MaxLength(50)
   displayName: string;
 
-  @ApiProperty({ example: 'password123' })
+  @ApiProperty({ example: 'Password123!' })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
+  @MaxLength(128)
+  @Matches(
+    /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~])[A-Za-z\d!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]{8,128}$/,
+    {
+      message:
+        'Password must contain at least one letter, one number, and one special character',
+    },
+  )
   password: string;
 }

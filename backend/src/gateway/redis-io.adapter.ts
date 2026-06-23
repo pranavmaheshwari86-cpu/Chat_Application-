@@ -1,19 +1,20 @@
 import { IoAdapter } from '@nestjs/platform-socket.io';
-import { ServerOptions } from 'socket.io';
+import { ServerOptions, Server as SocketIOServer } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { INestApplication } from '@nestjs/common';
 
-export class RedisIoAdapter extends IoAdapter {
+export class RedisIoAdapter extends IoAdapter implements OnModuleDestroy {
   private adapterConstructor: ReturnType<typeof createAdapter> | null = null;
   private readonly logger = new Logger(RedisIoAdapter.name);
+  private redisAvailable = false;
 
   constructor(
-    app: any,
+    app: INestApplication,
     private configService: ConfigService,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     super(app);
   }
 
@@ -40,26 +41,37 @@ export class RedisIoAdapter extends IoAdapter {
       const subClient = pubClient.duplicate();
 
       pubClient.on('error', (err) =>
-        this.logger.warn('Redis Pub Client Error (non-fatal)', err.message),
+        this.logger.error('Redis Pub Client Error', err.message),
       );
       subClient.on('error', (err) =>
-        this.logger.warn('Redis Sub Client Error (non-fatal)', err.message),
+        this.logger.error('Redis Sub Client Error', err.message),
       );
 
       await pubClient.connect();
       await subClient.connect();
 
       this.adapterConstructor = createAdapter(pubClient, subClient);
+      this.redisAvailable = true;
       this.logger.log(`Connected to Redis Adapter at ${host}:${port}`);
-    } catch {
-      this.logger.warn(
-        `⚠️  Redis not available at ${host}:${port}. Falling back to in-memory Socket.IO adapter. WebSocket features will work on a single server instance.`,
+    } catch (err) {
+      this.redisAvailable = false;
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Redis connection failed - WebSocket multi-server support disabled: ${errorMsg}`,
       );
-      this.adapterConstructor = null;
+      throw err; // Re-throw to prevent silent fallback
     }
   }
 
-  createIOServer(port: number, options?: ServerOptions): any {
+  isRedisAvailable(): boolean {
+    return this.redisAvailable;
+  }
+
+  onModuleDestroy() {
+    // Cleanup handled by NestJS
+  }
+
+  createIOServer(port: number, options?: ServerOptions): SocketIOServer {
     const clientUrl = this.configService.get<string>(
       'CLIENT_URL',
       'http://localhost:3000',
@@ -74,7 +86,6 @@ export class RedisIoAdapter extends IoAdapter {
     });
 
     if (this.adapterConstructor) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       server.adapter(this.adapterConstructor);
     }
 

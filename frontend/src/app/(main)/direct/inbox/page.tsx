@@ -39,7 +39,7 @@ export default function ChatPage() {
 function DirectInboxContent() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
-  const { conversations, setConversations, activeConversationId, setActiveConversation, messages, setMessages, addMessage, setIsLoadingMessages, setMessageError, updateMessage } = useChatStore();
+  const { conversations, setConversations, activeConversationId, setActiveConversation, messages, setMessages, addMessage, setIsLoadingMessages, setMessageError, updateMessage, clearUnreadCount } = useChatStore();
   const { getSocket, isConnected } = useSocket();
   const socket = getSocket();
   const [showSidebar, setShowSidebar] = useState(true);
@@ -83,7 +83,10 @@ function DirectInboxContent() {
     const fetchConversations = async () => {
       try {
         const data = await chatService.getConversations();
-        setConversations(data.data || []);
+        const convsArray = Array.isArray(data) ? data : 
+                          (Array.isArray(data?.data) ? data.data : 
+                          (Array.isArray(data?.data?.data) ? data.data.data : []));
+        setConversations(convsArray);
       } catch (error) {
         console.error("Failed to load conversations:", error);
         toast.error("Failed to load conversations");
@@ -102,13 +105,38 @@ function DirectInboxContent() {
       
       try {
         setIsLoadingMessages(activeConversationId, true);
-        const data = await chatService.getMessages(activeConversationId);
-        setMessages(activeConversationId, data.data || []);
-      } catch (error) {
+        const res = await chatService.getMessages(activeConversationId);
+        
+        // The API returns { success: true, data: { data: [...], nextCursor: null } }
+        // chatService.getMessages returns the full response data.
+        // So res.data is the paginated object { data: [...], nextCursor: null }
+        const messagesArray = Array.isArray(res) ? res : 
+                             (Array.isArray(res?.data) ? res.data : 
+                             (Array.isArray(res?.data?.data) ? res.data.data : []));
+        
+        setMessages(activeConversationId, messagesArray);
+        
+        // Mark as read in backend and frontend state
+        await chatService.markAsRead(activeConversationId);
+        clearUnreadCount(activeConversationId);
+      } catch (error: any) {
         console.error("Failed to load messages:", error);
-        toast.error("Failed to load messages");
+        
+        // If the backend says the conversation doesn't exist (404), remove it locally
+        if (error?.response?.status === 404) {
+          toast.error("Conversation no longer exists");
+          const currentConversations = useChatStore.getState().conversations;
+          useChatStore.getState().setConversations(
+            currentConversations.filter((c) => c._id !== activeConversationId)
+          );
+          setActiveConversation(null);
+        } else {
+          toast.error("Failed to load messages");
+        }
       } finally {
-        setIsLoadingMessages(activeConversationId, false);
+        if (activeConversationId) {
+          setIsLoadingMessages(activeConversationId, false);
+        }
       }
     };
 
@@ -124,7 +152,7 @@ function DirectInboxContent() {
         socket.emit("conversation:leave", { conversationId: activeConversationId });
       }
     };
-  }, [activeConversationId, setMessages, socket]);
+  }, [activeConversationId, setMessages, clearUnreadCount, socket]);
 
   const activeConversation = conversations.find((c) => c._id === activeConversationId) || null;
 
@@ -252,7 +280,7 @@ function DirectInboxContent() {
   }, [activeConversationId, updateMessage]);
 
   return (
-    <div className="flex h-full w-full max-w-[2000px] mx-auto bg-background overflow-hidden relative border-x border-[#191c1e]/50">
+    <div className="flex h-full w-full max-w-[2000px] mx-auto bg-surface-container-lowest overflow-hidden relative border-x border-outline-variant/20">
       {/* Sidebar */}
       <AnimatePresence mode="wait">
         {showSidebar && (
@@ -261,7 +289,7 @@ function DirectInboxContent() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-20 bg-[#020617]/80 backdrop-blur-sm lg:hidden"
+              className="fixed inset-0 z-20 bg-surface-container-lowest/80 backdrop-blur-sm lg:hidden"
               onClick={() => setShowSidebar(false)}
             />
             <motion.div

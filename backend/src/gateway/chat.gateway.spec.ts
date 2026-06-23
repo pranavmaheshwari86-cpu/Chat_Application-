@@ -1,10 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { getModelToken } from '@nestjs/mongoose';
 import { ChatGateway } from './chat.gateway';
 import { RedisService } from '../modules/redis/redis.service';
 import { MessagesService } from '../modules/messages/messages.service';
 import { ConversationsService } from '../modules/conversations/conversations.service';
+import { User } from '../modules/users/schemas/user.schema';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 describe('ChatGateway', () => {
@@ -32,6 +34,10 @@ describe('ChatGateway', () => {
     getConversation: jest.fn(),
   };
 
+  const mockUserModel = {
+    findById: jest.fn().mockResolvedValue({ isBanned: false }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }])],
@@ -42,6 +48,7 @@ describe('ChatGateway', () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: MessagesService, useValue: mockMessagesService },
         { provide: ConversationsService, useValue: mockConversationsService },
+        { provide: getModelToken(User.name), useValue: mockUserModel },
       ],
     }).compile();
 

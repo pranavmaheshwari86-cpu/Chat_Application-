@@ -1,24 +1,26 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
 import { EventsService } from './events.service';
 import { EventsProcessor } from './events.processor';
 import { MemoryWorker } from './workers/memory.worker';
 import { RelationshipWorker } from './workers/relationship.worker';
-import {
-  NotificationWorker,
-  AnalyticsWorker,
-  MediaWorker,
-} from './workers/system.workers';
-import { SummaryWorker } from './workers/summary.worker';
 import { AiModule } from '../ai/ai.module';
 import { MemoryModule } from '../memory/memory.module';
 import { RelationshipsModule } from '../relationships/relationships.module';
+import {
+  Conversation,
+  ConversationSchema,
+} from '../conversations/schemas/conversation.schema';
 
 @Module({
   imports: [
     AiModule,
     MemoryModule,
     RelationshipsModule,
+    MongooseModule.forFeature([
+      { name: Conversation.name, schema: ConversationSchema },
+    ]),
     BullModule.registerQueue({
       name: 'flashchat-events',
       defaultJobOptions: {
@@ -34,20 +36,8 @@ import { RelationshipsModule } from '../relationships/relationships.module';
         removeOnFail: false, // Serve as DLQ
       },
     }),
-    BullModule.registerQueue({
-      name: 'flashchat-summaries',
-    }),
   ],
-  providers: [
-    EventsService,
-    EventsProcessor,
-    MemoryWorker,
-    RelationshipWorker,
-    NotificationWorker,
-    AnalyticsWorker,
-    MediaWorker,
-    SummaryWorker,
-  ],
+  providers: [EventsService, EventsProcessor, MemoryWorker, RelationshipWorker],
   exports: [EventsService],
 })
 export class EventsModule {}

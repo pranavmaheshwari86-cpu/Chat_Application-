@@ -7,27 +7,50 @@ import { Heart, MessageCircle, Compass } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function ExplorePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEffect(() => {
+    // Don't fetch if the user isn't authenticated — the layout guard
+    // will redirect to /login, and firing the request would only
+    // produce a 401 error toast on the login page.
+    if (!isAuthenticated) return;
+
+    let cancelled = false;
+
     const fetchExplore = async () => {
       try {
         setLoading(true);
         // Using getFeed as a fallback for explore since we don't have a dedicated explore endpoint
         const data = await feedService.getFeed();
-        setPosts(data.items || []);
-      } catch (error) {
-        toast.error('Failed to load explore feed');
+        if (!cancelled) {
+          // getFeed returns Post[]
+          setPosts(Array.isArray(data) ? data : []);
+        }
+      } catch (error: any) {
+        // Silently ignore auth errors — the interceptor will handle
+        // the redirect; showing a toast here just confuses the user.
+        const status = error?.response?.status;
+        if (status === 401 || status === 403) return;
+
+        if (!cancelled) {
+          toast.error('Failed to load explore feed');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
     fetchExplore();
-  }, []);
+
+    return () => { cancelled = true; };
+  }, [isAuthenticated]);
 
   if (loading) {
     return <div className="flex justify-center mt-20 text-muted-foreground">Loading explore...</div>;

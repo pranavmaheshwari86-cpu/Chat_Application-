@@ -17,8 +17,14 @@ coverage/
 .vercel/
 .aider*
 .code-review-graph/
+.claude/
+.claude-flow/
+.opencode/
+.playwright-mcp/
+.swarm/
 dump.rdb
 backend/mongodb-data/
+backend/dist/
 shared/dist/
 archive-unused/
 Redis/
@@ -45,6 +51,34 @@ temp/
 *.rar
 *.7z
 
-# OS files
+# Cache Files
+frontend/.swc/
+frontend/tsconfig.tsbuildinfo
+
+# Test Artifacts
+frontend/playwright-report/
+frontend/test-results/
+
+# Additional Logs
+backend/mongod-output.txt
+
+# Temporary / Debug Files
+frontend/register-error.png
+bug-memory.json
+run.js
+
+# Local Development Script
+backend/start-dev-complete.js
+
+# Duplicate Documentation
+docs/PRODUCTION_READINESS_AUDIT.original.md
+
+# Abandoned Experimental Directories
+core/
+mcp/
+runtime/
+
+# Editor / OS Files
 .DS_Store
 Thumbs.db
+.idea/

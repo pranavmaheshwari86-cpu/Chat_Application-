@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <span className="material-symbols-outlined text-red-500 text-5xl mb-2">error</span>
             <h1 className="text-xl font-semibold">Something went wrong</h1>
             <p className="text-sm text-[#8a9296] mb-4">
-              We've encountered an unexpected error. Please try refreshing the page.
+              We&apos;ve encountered an unexpected error. Please try refreshing the page.
             </p>
             <button
               className="bg-[#E2B859] hover:bg-[#D1A03A] text-[#101415] px-6 py-2 rounded-full font-medium transition-colors"

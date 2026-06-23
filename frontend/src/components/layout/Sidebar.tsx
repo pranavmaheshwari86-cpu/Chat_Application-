@@ -3,14 +3,26 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useChatStore } from '@/store/useChatStore';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const { conversations } = useChatStore();
+
+  const currentUserId = user?._id;
+  const totalUnreadCount = conversations.reduce((total, conv) => {
+    const member = conv.members?.find(m => {
+      const mId = typeof m.userId === 'object' && m.userId !== null ? m.userId._id : m.userId;
+      return String(mId) === String(currentUserId);
+    });
+    return total + (member?.unreadCount || 0);
+  }, 0);
 
   const handleLogout = () => {
     logout();
@@ -30,9 +42,13 @@ export function Sidebar() {
     <aside className="hidden md:flex flex-col h-screen p-4 bg-surface-container/40 backdrop-blur-xl w-sidebar-width border-r border-white/10 shadow-xl shrink-0 z-50">
       {/* Brand Header */}
       <div className="flex items-center gap-3 mb-8 px-2">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-[0_0_15px_rgba(173,198,255,0.3)] border border-white/5">
-          <span className="material-symbols-outlined text-surface-container-lowest font-bold text-xl">bolt</span>
-        </div>
+        <Image 
+          src="/flashchat_logo.png" 
+          alt="FlashChat Logo" 
+          width={64} 
+          height={64} 
+          className="rounded-lg shadow-[0_0_15px_rgba(242,202,80,0.3)] border border-white/5 object-cover"
+        />
         <div>
           <h1 className="font-headline-md text-[20px] font-bold text-primary tracking-tight m-0">FlashChat</h1>
         </div>
@@ -60,7 +76,14 @@ export function Sidebar() {
                   : "text-on-surface-variant hover:text-on-surface hover:bg-white/5"
               )}
             >
-              <span className="material-symbols-outlined transition-colors group-hover:text-primary" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>
+              <div className="relative flex items-center justify-center">
+                <span className="material-symbols-outlined transition-colors group-hover:text-primary" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>
+                {item.label === 'Messages' && totalUnreadCount > 0 && (
+                  <span className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold text-[#131313] bg-primary rounded-full border border-[#131313] shadow-[0_0_10px_rgba(173,198,255,0.4)]">
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                  </span>
+                )}
+              </div>
               {item.label}
             </Link>
           );

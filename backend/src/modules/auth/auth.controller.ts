@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
 import type { AuthenticatedRequest } from '@chat/shared';
 import type { AuthUser, JwtPayload } from '@chat/shared';
@@ -36,6 +37,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User successfully registered' })
   async register(
@@ -54,6 +56,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiResponse({ status: 200, description: 'User successfully logged in' })
   async login(
@@ -88,15 +91,16 @@ export class AuthController {
     const result = await this.authService.googleLogin(req.user);
     this.setRefreshTokenCookie(res, result.refreshToken);
 
-    // Set access token as a short-lived httpOnly cookie instead of leaking in URL
     const clientUrl = this.configService.get<string>(
       'CLIENT_URL',
       'http://localhost:3000',
     );
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+    const isProduction = nodeEnv === 'production';
     res.cookie('accessToken', result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
       maxAge: 60 * 1000, // 60 seconds — just enough for frontend to read and clear
     });
@@ -106,6 +110,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @UseGuards(AuthGuard('jwt-refresh'))
   @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
   async refreshTokens(
@@ -145,16 +150,46 @@ export class AuthController {
   }
 
   private setRefreshTokenCookie(res: Response, refreshToken: string) {
-    const expiry = process.env.JWT_REFRESH_EXPIRY || '7d';
-    const days = parseInt(expiry.replace('d', ''));
-    const isProduction = process.env.NODE_ENV === 'production';
+    const expiry = this.configService.get<string>('jwt.refreshExpiry', '7d');
+    // Support formats: 7d, 24h, 60m, 3600s, 7 (defaults to days)
+    const match = expiry.trim().match(/^(\d+)([dhms]?)$/i);
+    let maxAgeMs: number;
+
+    if (match) {
+      const value = parseInt(match[1], 10);
+      const unit = (match[2] || 'd').toLowerCase();
+      switch (unit) {
+        case 'd':
+          maxAgeMs = value * 24 * 60 * 60 * 1000;
+          break;
+        case 'h':
+          maxAgeMs = value * 60 * 60 * 1000;
+          break;
+        case 'm':
+          maxAgeMs = value * 60 * 1000;
+          break;
+        case 's':
+          maxAgeMs = value * 1000;
+          break;
+        default:
+          maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+      }
+      // Sanity check: max 30 days, min 1 minute
+      maxAgeMs = Math.min(maxAgeMs, 30 * 24 * 60 * 60 * 1000);
+      maxAgeMs = Math.max(maxAgeMs, 60 * 1000);
+    } else {
+      maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    }
+
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
+    const isProduction = nodeEnv === 'production';
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
-      maxAge: days * 24 * 60 * 60 * 1000,
+      maxAge: maxAgeMs,
     });
   }
 }

@@ -29,7 +29,7 @@ export class MemoryController {
   ) {
     const memories = await this.memoryService.semanticSearch(
       query,
-      req.user.id,
+      req.user.userId,
       limit,
     );
     return { data: memories };

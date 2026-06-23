@@ -5,12 +5,12 @@ import {
   Patch,
   Body,
   Param,
-  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import type { AuthenticatedRequest } from '@chat/shared';
 import { StoriesService } from './stories.service';
+import { FollowsService } from '../follows/follows.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import {
@@ -88,12 +88,15 @@ export class StoryHighlightDto {
 @UseGuards(JwtAuthGuard)
 @Controller('stories')
 export class StoriesController {
-  constructor(private readonly storiesService: StoriesService) {}
+  constructor(
+    private readonly storiesService: StoriesService,
+    private readonly followsService: FollowsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new story (image, video, text, poll)' })
   async create(@Req() req: AuthenticatedRequest, @Body() body: CreateStoryDto) {
-    const story = await this.storiesService.createStory(req.user.id, body);
+    const story = await this.storiesService.createStory(req.user.userId, body);
     return { data: story };
   }
 
@@ -101,12 +104,8 @@ export class StoriesController {
   @ApiOperation({
     summary: 'Get story feed (stories from followed users, grouped by author)',
   })
-  async getFeed(
-    @Req() req: AuthenticatedRequest,
-    @Query('followedIds') followedIds: string,
-  ) {
-    // Client sends comma-separated followed user IDs
-    const ids = followedIds ? followedIds.split(',').filter(Boolean) : [];
+  async getFeed(@Req() req: AuthenticatedRequest) {
+    const ids = await this.followsService.getFollowingIds(req.user.userId);
     const feed = await this.storiesService.getStoryFeed(ids);
     return { data: feed };
   }
@@ -128,7 +127,7 @@ export class StoriesController {
   @Post(':id/view')
   @ApiOperation({ summary: 'Mark a story as viewed' })
   async markViewed(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
-    await this.storiesService.markViewed(id, req.user.id);
+    await this.storiesService.markViewed(id, req.user.userId);
     return { success: true };
   }
 
@@ -139,7 +138,7 @@ export class StoriesController {
     @Req() req: AuthenticatedRequest,
     @Body() body: StoryReactionDto,
   ) {
-    await this.storiesService.reactToStory(id, req.user.id, body.emoji);
+    await this.storiesService.reactToStory(id, req.user.userId, body.emoji);
     return { success: true };
   }
 
@@ -152,7 +151,7 @@ export class StoriesController {
   ) {
     const story = await this.storiesService.votePoll(
       id,
-      req.user.id,
+      req.user.userId,
       body.optionIndex,
     );
     return { data: story };
@@ -169,7 +168,7 @@ export class StoriesController {
   ) {
     const story = await this.storiesService.saveToHighlight(
       id,
-      req.user.id,
+      req.user.userId,
       body.groupName,
     );
     return { data: story };

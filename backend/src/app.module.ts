@@ -4,8 +4,10 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bull';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { LoggerModule } from 'nestjs-pino';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
@@ -36,8 +38,8 @@ import jwtConfig from './config/jwt.config';
 import cloudinaryConfig from './config/cloudinary.config';
 import throttleConfig from './config/throttle.config';
 import googleConfig from './config/google.config';
+import { User, UserSchema } from './modules/users/schemas/user.schema';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
-import { StructuredLogger } from './common/logger/structured-logger.service';
 
 import { validate } from './config/config.validation';
 
@@ -99,6 +101,22 @@ import { validate } from './config/config.validation';
     // Event Emitter
     EventEmitterModule.forRoot(),
 
+    // Logger
+    LoggerModule.forRoot({
+      pinoHttp: {
+        genReqId: (req: any) =>
+          req.headers['x-correlation-id'] || req.correlationId,
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty' }
+            : undefined,
+        level: process.env.NODE_ENV !== 'production' ? 'debug' : 'info',
+      },
+    }),
+
+    // Models needed globally (for guards, etc.)
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+
     // Feature modules
     AuthModule,
     UsersModule,
@@ -126,7 +144,6 @@ import { validate } from './config/config.validation';
     AdminModule,
   ],
   providers: [
-    StructuredLogger,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
@@ -135,6 +152,7 @@ import { validate } from './config/config.validation';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    RolesGuard,
   ],
 })
 export class AppModule implements NestModule {
