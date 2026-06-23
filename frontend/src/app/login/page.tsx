@@ -70,7 +70,7 @@ export default function LoginPage() {
      
     } catch (err: any) {
       if (err.message === "Failed to fetch") {
-        setError("Cannot reach the server. Please ensure the backend is running on port 3001.");
+        setError("Cannot reach the server. Please ensure the backend is running and CORS is configured.");
       } else {
         setError(err.message || "Something went wrong");
       }
