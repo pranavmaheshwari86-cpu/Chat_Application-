@@ -94,11 +94,11 @@ import { validate } from './config/config.validation';
           host: configService.get<string>('redis.host', 'localhost'),
           port: configService.get<number>('redis.port', 6379),
           password: configService.get<string>('redis.password', ''),
-          maxRetriesPerRequest: 3,
+          maxRetriesPerRequest: null,
           enableReadyCheck: false,
           retryStrategy(times: number) {
-            if (times > 3) return null;
-            return Math.min(times * 200, 1000);
+            // Never return null or undefined, so it never throws a fatal error on startup
+            return Math.min(times * 500, 5000);
           },
         },
       }),
