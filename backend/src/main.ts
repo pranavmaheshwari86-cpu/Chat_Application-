@@ -29,9 +29,15 @@ async function bootstrap() {
 
     const clientUrls = clientUrl.split(',').map(url => url.trim());
 
-    // CORS — strict allowlist, not origin: true
+    // CORS — strict allowlist, plus dynamic regex for Vercel preview URLs
     app.enableCors({
-      origin: clientUrls,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (clientUrls.includes(origin)) return callback(null, true);
+        // Allow any Vercel preview deployment
+        if (origin.endsWith('.vercel.app')) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'), false);
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
