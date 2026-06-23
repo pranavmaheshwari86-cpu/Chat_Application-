@@ -46,10 +46,11 @@ class EnvironmentVariables {
   @IsNotEmptyString({ message: 'MONGODB_URI is required' })
   MONGODB_URI: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmptyString({ message: 'REDIS_HOST is required' })
   REDIS_HOST: string;
 
+  @IsOptional()
   @IsNumber()
   REDIS_PORT: number;
 

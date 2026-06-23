@@ -139,6 +139,8 @@ async function bootstrap() {
     }
 
     await app.listen(port, '0.0.0.0');
+    console.log(`🚀 Server listening on 0.0.0.0:${port} (${nodeEnv})`);
+    console.log(`📡 Health check available at http://0.0.0.0:${port}/api/health`);
   } catch (error: unknown) {
     const err = error as Error;
     console.error(`❌ Failed to start the server: ${err.message}`, err.stack);
