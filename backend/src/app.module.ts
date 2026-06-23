@@ -66,7 +66,7 @@ import { validate } from './config/config.validation';
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>(
           'database.uri',
-          'mongodb://127.0.0.1:27017/flashchat?replicaSet=testset',
+          'mongodb+srv://pranavmaheshwari86_db_user:vr3I2RzeJdRvf7ug@newflashchat.ouafemc.mongodb.net/flashchat?retryWrites=true&w=majority',
         ),
         autoIndex: process.env.NODE_ENV !== 'production',
         serverSelectionTimeoutMS: 5000,
