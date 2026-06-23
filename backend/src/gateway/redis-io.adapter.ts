@@ -82,7 +82,7 @@ export class RedisIoAdapter extends IoAdapter implements OnModuleDestroy {
     const server = super.createIOServer(port, {
       ...options,
       cors: {
-        origin: (origin, callback) => {
+        origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
           if (!origin) return callback(null, true);
           if (clientUrls.includes(origin)) return callback(null, true);
           // Allow any Vercel preview deployment
