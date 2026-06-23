@@ -128,8 +128,8 @@ async function bootstrap() {
     }
 
     // Start listening BEFORE running heavy index syncs to ensure Railway Healthcheck passes
-    await app.listen(port);
-    console.log(`🚀 Server listening on port ${port} (${nodeEnv})`);
+    await app.listen(port, '0.0.0.0');
+    console.log(`🚀 Server listening on port ${port} (0.0.0.0, ${nodeEnv})`);
     console.log(`📡 Health check available at http://localhost:${port}/api/health`);
 
     // Sync indexes AFTER server is listening (non-blocking for healthcheck)
