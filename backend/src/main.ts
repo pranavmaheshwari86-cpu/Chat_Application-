@@ -58,7 +58,7 @@ async function bootstrap() {
                 'https://res.cloudinary.com',
                 'https://lh3.googleusercontent.com',
               ],
-              connectSrc: ["'self'", clientUrl],
+              connectSrc: ["'self'", ...clientUrls, "https://*.vercel.app"],
               fontSrc: ["'self'", 'https://fonts.gstatic.com'],
             },
           },
