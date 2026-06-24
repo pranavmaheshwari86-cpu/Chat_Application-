@@ -36,11 +36,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background w-full">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 relative z-20 bg-background/50">
-        <main className="flex-1 overflow-y-auto relative pb-14 md:pb-0">
+        <main className="flex-1 overflow-y-auto relative pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">
           {children}
         </main>
         {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-[#0b0f10]/95 backdrop-blur-xl border-t border-[#40484b]/30 h-14 px-1 safe-area-bottom">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around bg-[#0b0f10]/95 backdrop-blur-xl border-t border-[#40484b]/30 h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] px-1">
           {MOBILE_NAV.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));

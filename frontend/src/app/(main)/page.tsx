@@ -17,7 +17,7 @@ export default function HomePage() {
     <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 flex gap-6 md:gap-10 relative h-full">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-surface-variant/10 via-background to-background pointer-events-none -z-10"></div>
       
-      <div className="flex-1 flex flex-col gap-6 md:gap-10 min-w-0 max-w-5xl mx-auto w-full">
+      <div className="flex-1 flex flex-col gap-6 md:gap-10 min-w-0 max-w-7xl 2xl:max-w-[2000px] mx-auto w-full">
         {/* Daily Context Section */}
         <section className="glass-panel rounded-2xl p-4 sm:p-6 md:p-8 relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-secondary to-surface-variant"></div>
@@ -159,24 +159,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* AI Search Bar */}
-        <div className="mt-auto pt-8 pb-2">
-          <div className="relative max-w-3xl mx-auto w-full">
-            <div className="relative flex items-center bg-[#151718] border border-[#f2ca50]/40 rounded-xl overflow-hidden focus-within:border-[#f2ca50] transition-colors shadow-lg">
-              <input 
-                type="text" 
-                placeholder="Ask AI or search anything..." 
-                className="w-full bg-transparent text-on-surface placeholder:text-on-surface-variant/50 px-5 py-3.5 focus:outline-none font-body-md"
-              />
-              <button className="absolute right-2.5 p-1.5 bg-[#f2ca50] text-black rounded-lg hover:bg-[#f2ca50]/90 transition-colors flex items-center justify-center">
-                <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>send</span>
-              </button>
-            </div>
-            <p className="text-center text-[10px] text-on-surface-variant/50 mt-3 font-body-sm">
-              AI can make mistakes. Consider verifying important information.
-            </p>
-          </div>
-        </div>
 
       </div>
     </div>

@@ -154,7 +154,7 @@ export default function MessageInput({ onSend, onSendAudio, disabled, replyTo, o
   };
 
   return (
-    <div className="p-6 z-10 sticky bottom-0"
+    <div className="px-3 py-3 sm:p-6 z-10 sticky bottom-0 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
       style={{
         background: 'rgba(19, 19, 19, 0.85)',
         backdropFilter: 'blur(12px)',
