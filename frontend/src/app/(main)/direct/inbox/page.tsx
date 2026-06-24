@@ -390,12 +390,18 @@ function DirectInboxContent() {
           isOpen={isNewChatModalOpen} 
           onClose={() => setIsNewChatModalOpen(false)}
           onChatCreated={(conv) => {
+            // Unwrap response if it's wrapped by TransformInterceptor { success: true, data: {...} }
+            const actualConv = conv?.data || conv;
+            
             // Add the new conversation to the store if it doesn't exist
-            const exists = useChatStore.getState().conversations.some(c => c._id === conv._id);
-            if (!exists) {
-              useChatStore.getState().setConversations([conv, ...useChatStore.getState().conversations]);
+            const exists = useChatStore.getState().conversations.some(c => c._id === actualConv._id);
+            if (!exists && actualConv._id) {
+              useChatStore.getState().setConversations([actualConv, ...useChatStore.getState().conversations]);
             }
-            handleSelectConversation(conv._id);
+            
+            if (actualConv._id) {
+              handleSelectConversation(actualConv._id);
+            }
           }}
         />
         )}
