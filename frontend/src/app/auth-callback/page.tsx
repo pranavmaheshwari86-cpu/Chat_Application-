@@ -34,7 +34,7 @@ export default function AuthCallbackPage() {
           useAuthStore.getState().setAccessToken(accessToken);
 
           // Fetch user profile using the token
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://server-production-373b.up.railway.app/api";
           const res = await fetch(`${apiUrl}/users/me`, {
             headers: { Authorization: `Bearer ${accessToken}` },
           });

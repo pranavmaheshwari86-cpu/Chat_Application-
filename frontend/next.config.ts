@@ -27,7 +27,7 @@ const nextConfig = {
     ],
   },
   async headers() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://server-production-373b.up.railway.app/api';
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || apiUrl.replace('http', 'ws');
     
     // Extract base origins for CSP

@@ -3,7 +3,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://server-production-373b.up.railway.app/api';
 
 // Separate axios instance for token refresh to avoid interceptor loops
 const refreshApi = axios.create({

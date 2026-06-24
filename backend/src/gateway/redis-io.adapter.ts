@@ -19,25 +19,27 @@ export class RedisIoAdapter extends IoAdapter implements OnModuleDestroy {
   }
 
   async connectToRedis(): Promise<void> {
+    const redisUrl = this.configService.get<string>('redis.url') || this.configService.get<string>('REDIS_URL');
     const host = this.configService.get<string>('redis.host', 'localhost');
     const port = this.configService.get<number>('redis.port', 6379);
     const password = this.configService.get<string>('redis.password', '');
 
     try {
-      const pubClient = new Redis({
-        host,
-        port,
-        password,
+      const redisOptions = {
         maxRetriesPerRequest: 3,
         keepAlive: 10000,
         enableReadyCheck: false,
         family: 4,
-        retryStrategy(times) {
+        retryStrategy(times: number) {
           if (times > 3) return null; // stop retrying after 3 attempts
           return Math.min(times * 200, 1000);
         },
         lazyConnect: true,
-      });
+      };
+
+      const pubClient = redisUrl
+        ? new Redis(redisUrl, redisOptions)
+        : new Redis({ host, port, password, ...redisOptions });
       const subClient = pubClient.duplicate();
 
       pubClient.on('error', (err) =>
@@ -52,7 +54,8 @@ export class RedisIoAdapter extends IoAdapter implements OnModuleDestroy {
 
       this.adapterConstructor = createAdapter(pubClient, subClient);
       this.redisAvailable = true;
-      this.logger.log(`Connected to Redis Adapter at ${host}:${port}`);
+      const target = redisUrl ? 'REDIS_URL' : `${host}:${port}`;
+      this.logger.log(`Connected to Redis Adapter via ${target}`);
     } catch (err) {
       this.redisAvailable = false;
       const errorMsg = err instanceof Error ? err.message : String(err);

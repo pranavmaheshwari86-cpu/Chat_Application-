@@ -22,25 +22,27 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
+    const redisUrl = this.configService.get<string>('redis.url') || this.configService.get<string>('REDIS_URL');
     const host = this.configService.get<string>('redis.host', 'localhost');
     const port = this.configService.get<number>('redis.port', 6379);
     const password = this.configService.get<string>('redis.password', '');
 
     try {
-      this.client = new Redis({
-        host,
-        port,
-        password,
+      const redisOptions = {
         maxRetriesPerRequest: 3,
         keepAlive: 10000,
         enableReadyCheck: false,
         family: 4,
-        retryStrategy(times) {
+        retryStrategy(times: number) {
           if (times > 3) return null;
           return Math.min(times * 200, 1000);
         },
         lazyConnect: true,
-      });
+      };
+
+      this.client = redisUrl
+        ? new Redis(redisUrl, redisOptions)
+        : new Redis({ host, port, password, ...redisOptions });
 
       this.client.on('error', (err) => {
         if (this.connected) {
@@ -64,10 +66,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
       await this.client.connect();
       this.connected = true;
-      this.logger.log(`Connected to Redis at ${host}:${port}`);
+      const target = redisUrl ? 'REDIS_URL' : `${host}:${port}`;
+      this.logger.log(`Connected to Redis via ${target}`);
     } catch (err) {
+      const target = redisUrl ? 'REDIS_URL' : `${host}:${port}`;
       this.logger.error(
-        `❌ Redis connection failed at ${host}:${port}: ${(err as Error).message}`,
+        `❌ Redis connection failed at ${target}: ${(err as Error).message}`,
       );
       this.client = null;
       this.connected = false;

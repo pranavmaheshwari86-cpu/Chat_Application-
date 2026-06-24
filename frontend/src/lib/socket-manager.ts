@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 
 // Derive socket URL from API URL robustly
 function getSocketUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://server-production-373b.up.railway.app/api';
   try {
     const url = new URL(apiUrl);
     // Use origin (protocol + host + port) for socket connection
@@ -25,7 +25,7 @@ function getSocketUrl(): string {
       // Ignore
     }
     // Final fallback
-    return 'http://localhost:3001';
+    return 'https://server-production-373b.up.railway.app';
   }
 }
 

@@ -89,19 +89,27 @@ import { validate } from './config/config.validation';
     // BullMQ / Queue
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get<string>('redis.host', 'localhost'),
-          port: configService.get<number>('redis.port', 6379),
-          password: configService.get<string>('redis.password', ''),
+      useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('redis.url') || configService.get<string>('REDIS_URL');
+        const baseOptions = {
           maxRetriesPerRequest: null,
           enableReadyCheck: false,
           retryStrategy(times: number) {
             // Never return null or undefined, so it never throws a fatal error on startup
             return Math.min(times * 500, 5000);
           },
-        },
-      }),
+        };
+        return {
+          redis: redisUrl
+            ? { url: redisUrl, ...baseOptions }
+            : {
+                host: configService.get<string>('redis.host', 'localhost'),
+                port: configService.get<number>('redis.port', 6379),
+                password: configService.get<string>('redis.password', ''),
+                ...baseOptions,
+              },
+        };
+      },
     }),
 
     // Event Emitter

@@ -25,7 +25,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://server-production-373b.up.railway.app/api";
       const res = await fetch(
         `${apiUrl}/auth/login`,
         {
@@ -80,7 +80,7 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/auth/google`;
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL || "https://server-production-373b.up.railway.app/api"}/auth/google`;
   };
 
   return (
