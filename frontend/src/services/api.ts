@@ -24,23 +24,9 @@ export const api = axios.create({
 });
 
 let isRefreshing = false;
-let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: any) => void }> = [];
+let refreshPromise: Promise<string> | null = null;
 let refreshAttempts = 0;
 const MAX_REFRESH_ATTEMPTS = 3;
-
-const processQueue = (error: any, token: string | null = null) => {
-  // Copy queue to avoid stale closure issues
-  const queue = [...failedQueue];
-  failedQueue = [];
-  
-  queue.forEach((prom) => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token as string);
-    }
-  });
-};
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -61,17 +47,16 @@ api.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${token}`;
-            }
-            return api(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
+      if (isRefreshing && refreshPromise) {
+        try {
+          const token = await refreshPromise;
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+          }
+          return api(originalRequest);
+        } catch (err) {
+          return Promise.reject(err);
+        }
       }
 
       if (refreshAttempts >= MAX_REFRESH_ATTEMPTS) {
@@ -83,31 +68,40 @@ api.interceptors.response.use(
       isRefreshing = true;
       refreshAttempts++;
 
-      try {
-        // Use separate refreshApi instance to avoid interceptor loop
-        const { data } = await refreshApi.post('/auth/refresh', {});
-        
-        // Backend TransformInterceptor wraps response as { success, data: { accessToken } }
-        const newAccessToken = data?.data?.accessToken || data?.accessToken;
-        
-        if (!newAccessToken) {
-          throw new Error('No access token in refresh response');
+      refreshPromise = (async () => {
+        try {
+          const { data } = await refreshApi.post('/auth/refresh', {});
+          const newAccessToken = data?.data?.accessToken || data?.accessToken;
+          
+          if (!newAccessToken) {
+            throw new Error('No access token in refresh response');
+          }
+          
+          useAuthStore.getState().setAccessToken(newAccessToken);
+          refreshAttempts = 0;
+          return newAccessToken;
+        } catch (err: any) {
+          if (err.response?.status === 409) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            const newToken = useAuthStore.getState().accessToken;
+            if (newToken) return newToken;
+          }
+          useAuthStore.getState().logout();
+          throw err;
+        } finally {
+          isRefreshing = false;
+          refreshPromise = null;
         }
-        
-        useAuthStore.getState().setAccessToken(newAccessToken);
-        processQueue(null, newAccessToken);
-        refreshAttempts = 0; // Reset on success
-        
+      })();
+
+      try {
+        const token = await refreshPromise;
         if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          originalRequest.headers.Authorization = `Bearer ${token}`;
         }
         return api(originalRequest);
       } catch (err) {
-        processQueue(err, null);
-        useAuthStore.getState().logout();
         return Promise.reject(err);
-      } finally {
-        isRefreshing = false;
       }
     }
 

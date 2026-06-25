@@ -120,9 +120,9 @@ export default function ProfilePage() {
     <main className="min-h-screen font-body-md text-body-md text-on-surface">
       <div className="max-w-[1000px] mx-auto px-gutter md:px-page-margin py-12">
         {/* Profile Hero Section */}
-        <div className="relative mb-section-gap">
+        <div className="relative mb-32 md:mb-24">
           {/* Banner */}
-          <div className="h-64 md:h-80 w-full rounded-xl overflow-hidden relative group">
+          <div className="h-48 md:h-80 w-full rounded-xl overflow-hidden relative group">
             <div className="absolute inset-0 metallic-gradient opacity-20"></div>
             <Image 
               fill
@@ -133,53 +133,55 @@ export default function ProfilePage() {
             <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent opacity-60"></div>
           </div>
           
-          {/* Avatar Overlay */}
-          <div className="absolute -bottom-16 left-8 md:left-12 flex items-end gap-6">
-            <div className="bg-background rounded-xl">
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-xl border-4 border-background overflow-hidden bg-surface-container-highest flex items-center justify-center relative shadow-lg">
-                {profile.avatar ? (
-                  <Image src={profile.avatar} alt="Profile" fill className="object-cover" />
-                ) : (
-                  <span className="text-6xl md:text-7xl font-display-xl text-primary drop-shadow-lg uppercase">
-                    {profile.displayName?.charAt(0) || "U"}
-                  </span>
-                )}
+          <div className="absolute -bottom-24 md:-bottom-16 left-4 md:left-12 flex flex-col md:flex-row md:items-end justify-between w-[calc(100%-2rem)] md:w-[calc(100%-6rem)] gap-4">
+            {/* Avatar Overlay */}
+            <div className="flex items-end gap-6">
+              <div className="bg-background rounded-xl">
+                <div className="w-24 h-24 md:w-40 md:h-40 rounded-xl border-4 border-background overflow-hidden bg-surface-container-highest flex items-center justify-center relative shadow-lg">
+                  {profile.avatar ? (
+                    <Image src={profile.avatar} alt="Profile" fill className="object-cover" />
+                  ) : (
+                    <span className="text-4xl md:text-7xl font-display-xl text-primary drop-shadow-lg uppercase">
+                      {profile.displayName?.charAt(0) || "U"}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Edit Profile Action */}
-          <div className="absolute -bottom-12 right-0">
-            {isOwnProfile ? (
-              <button 
-                onClick={() => setIsEditModalOpen(true)}
-                className="px-8 py-3 rounded-lg metallic-gradient text-background font-label-sm text-label-sm uppercase tracking-widest font-bold hover:scale-[1.02] active:scale-95 transition-all shadow-lg"
-              >
-                Edit Profile
-              </button>
-            ) : (
-              <div className="flex gap-3">
+            {/* Edit Profile Action */}
+            <div className="flex justify-start md:justify-end mt-2 md:mt-0">
+              {isOwnProfile ? (
                 <button 
-                  onClick={handleMessage}
-                  disabled={isActionLoading}
-                  className="px-6 py-3 rounded-lg bg-surface-container border border-outline text-on-surface font-label-sm text-label-sm uppercase tracking-widest font-bold hover:bg-surface-container-high transition-all shadow-lg flex items-center gap-2"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="px-6 py-2 md:px-8 md:py-3 rounded-lg metallic-gradient text-background font-label-sm text-label-sm uppercase tracking-widest font-bold hover:scale-[1.02] active:scale-95 transition-all shadow-lg w-full md:w-auto"
                 >
-                  <span className="material-symbols-outlined text-sm">chat</span>
-                  Message
+                  Edit Profile
                 </button>
-                <button 
-                  onClick={handleFollowToggle}
-                  disabled={isActionLoading}
-                  className={`px-8 py-3 rounded-lg font-label-sm text-label-sm uppercase tracking-widest font-bold hover:scale-[1.02] active:scale-95 transition-all shadow-lg ${
-                    isFollowing 
-                      ? "bg-surface-container border border-outline text-on-surface hover:bg-surface-container-high"
-                      : "metallic-gradient text-background"
-                  }`}
-                >
-                  {isFollowing ? "Unfollow" : "Follow"}
-                </button>
-              </div>
-            )}
+              ) : (
+                <div className="flex gap-3 w-full md:w-auto">
+                  <button 
+                    onClick={handleMessage}
+                    disabled={isActionLoading}
+                    className="flex-1 md:flex-none px-4 py-2 md:px-6 md:py-3 rounded-lg bg-surface-container border border-outline text-on-surface font-label-sm text-label-sm uppercase tracking-widest font-bold hover:bg-surface-container-high transition-all shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">chat</span>
+                    Message
+                  </button>
+                  <button 
+                    onClick={handleFollowToggle}
+                    disabled={isActionLoading}
+                    className={`flex-1 md:flex-none px-4 py-2 md:px-8 md:py-3 rounded-lg font-label-sm text-label-sm uppercase tracking-widest font-bold hover:scale-[1.02] active:scale-95 transition-all shadow-lg ${
+                      isFollowing 
+                        ? "bg-surface-container border border-outline text-on-surface hover:bg-surface-container-high"
+                        : "metallic-gradient text-background"
+                    }`}
+                  >
+                    {isFollowing ? "Unfollow" : "Follow"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -202,7 +202,7 @@ export class AuthService {
       );
     } catch (error) {
       if ((error as Error).message === 'TOKEN_ROTATION_RACE') {
-        throw new UnauthorizedException('Access Denied');
+        throw new ConflictException('Token rotation in progress');
       }
       throw error;
     }

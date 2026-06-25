@@ -80,7 +80,7 @@ export class RelationshipsService {
       { userId: ownerId, contactId: targetId },
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       update,
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     );
 
     // Advanced: Re-evaluate scores based on the new interaction

@@ -29,6 +29,26 @@ import { SendWsMessageDto } from './dto/send-ws-message.dto';
 import { ConversationsService } from '../modules/conversations/conversations.service';
 import { MessagesService } from '../modules/messages/messages.service';
 
+interface ConversationMemberPayload {
+  userId: string | { _id: string; [key: string]: unknown };
+}
+
+interface ConversationPayload {
+  members?: ConversationMemberPayload[];
+}
+
+interface MessagePayload {
+  content?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
+interface ReactionPayload {
+  emoji: string;
+  userId: string;
+  [key: string]: unknown;
+}
+
 @WebSocketGateway({ namespace: '/' })
 @UseGuards(WsThrottlerGuard, WsAuthGuard)
 @UseFilters(WsExceptionFilter)
@@ -75,7 +95,8 @@ export class ChatGateway
       this.logger.log(`Client connected: ${client.id} (User: ${client.user.userId})`);
     } catch (err) {
       this.logger.warn(`Client connection rejected without valid user: ${client.id}`);
-      client.disconnect();
+      client.disconnect(true);
+      throw err;
     }
   }
 
@@ -92,8 +113,8 @@ export class ChatGateway
   @OnEvent('message.created')
   handleMessageCreated(payload: {
     conversationId: string;
-    message: any;
-    conversation: any;
+    message: MessagePayload;
+    conversation: ConversationPayload;
   }) {
     // Emit to conversation room
     this.server
@@ -105,8 +126,9 @@ export class ChatGateway
 
     // Emit to members' personal rooms who are NOT in the conversation room
     if (payload.conversation?.members) {
-      payload.conversation.members.forEach((member: any) => {
-        const memberRoom = `user:${member.userId.toString()}`;
+      payload.conversation.members.forEach((member: ConversationMemberPayload) => {
+        const memberUserId = typeof member.userId === 'object' ? member.userId._id : member.userId;
+        const memberRoom = `user:${memberUserId.toString()}`;
         this.server
           .to(memberRoom)
           .except(`conversation:${payload.conversationId}`)
@@ -141,10 +163,6 @@ export class ChatGateway
       .emit(ServerEvents.MESSAGE_DELETED, payload);
   }
 
-  @OnEvent('message.flagged')
-  handleMessageFlagged(payload: { messageId: string }) {
-    // In a real app, you might want to broadcast that a message was flagged/hidden
-  }
 
   @OnEvent('message.read')
   handleMessageReadInternal(payload: {
@@ -162,31 +180,33 @@ export class ChatGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody('conversationId') conversationId: string,
   ) {
+    if (!conversationId || typeof conversationId !== 'string') {
+      return { success: false, error: { code: 'ValidationError', message: 'conversationId must be a string' } };
+    }
     try {
       // Validate membership before allowing room join (Fix for SEC-01)
       await this.conversationsService.getConversation(
         conversationId,
         client.user.userId,
       );
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      client.join(`conversation:${conversationId}`);
+      await client.join(`conversation:${conversationId}`);
       return { success: true, conversationId };
     } catch (error) {
       this.logger.warn(
         `Unauthorized room join attempt: ${client.id} for ${conversationId}`,
       );
 
-      return { success: false, error: error.message };
+      return { success: false, error: { code: 'Unauthorized', message: error.message } };
     }
   }
 
   @SubscribeMessage(ClientEvents.CONVERSATION_LEAVE)
-  handleLeaveConversation(
+  async handleLeaveConversation(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody('conversationId') conversationId: string,
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    client.leave(`conversation:${conversationId}`);
+    if (!conversationId) return { success: false, error: { code: 'ValidationError', message: 'conversationId is required' } };
+    await client.leave(`conversation:${conversationId}`);
     return { success: true, conversationId };
   }
 
@@ -213,7 +233,7 @@ export class ChatGateway
     } catch (error) {
       this.logger.error(`Failed to send message via WS: ${error.message}`);
 
-      return { success: false, error: error.message };
+      return { success: false, error: { code: 'InternalError', message: error.message } };
     }
   }
 
@@ -223,6 +243,9 @@ export class ChatGateway
     @MessageBody()
     payload: { messageId: string; conversationId: string; content: string },
   ) {
+    if (!payload.messageId || !payload.conversationId || !payload.content) {
+      return { success: false, error: { code: 'ValidationError', message: 'Missing required fields' } };
+    }
     try {
       const message = await this.messagesService.editMessage(
         payload.messageId,
@@ -235,7 +258,7 @@ export class ChatGateway
     } catch (error) {
       this.logger.error(`Failed to edit message via WS: ${error.message}`);
 
-      return { success: false, error: error.message };
+      return { success: false, error: { code: 'InternalError', message: error.message } };
     }
   }
 
@@ -244,6 +267,9 @@ export class ChatGateway
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() payload: { messageId: string; conversationId: string },
   ) {
+    if (!payload.messageId || !payload.conversationId) {
+      return { success: false, error: { code: 'ValidationError', message: 'Missing required fields' } };
+    }
     try {
       await this.messagesService.deleteMessage(
         payload.messageId,
@@ -254,7 +280,7 @@ export class ChatGateway
     } catch (error) {
       this.logger.error(`Failed to delete message via WS: ${error.message}`);
 
-      return { success: false, error: error.message };
+      return { success: false, error: { code: 'InternalError', message: error.message } };
     }
   }
 
@@ -264,6 +290,9 @@ export class ChatGateway
     @MessageBody()
     payload: { messageId: string; conversationId: string; emoji: string },
   ) {
+    if (!payload.messageId || !payload.conversationId || !payload.emoji) {
+      return { success: false, error: { code: 'ValidationError', message: 'Missing required fields' } };
+    }
     try {
       const result = await this.messagesService.reactToMessage(
         payload.messageId,
@@ -276,7 +305,7 @@ export class ChatGateway
       this.logger.warn(
         `Unauthorized reaction attempt: ${client.id} on ${payload.messageId}`,
       );
-      return { success: false, error: error.message };
+      return { success: false, error: { code: 'Unauthorized', message: error.message } };
     }
   }
 
@@ -284,7 +313,7 @@ export class ChatGateway
   handleMessageReacted(payload: {
     conversationId: string;
     messageId: string;
-    reactions: any[];
+    reactions: ReactionPayload[];
   }) {
     this.server
       .to(`conversation:${payload.conversationId}`)

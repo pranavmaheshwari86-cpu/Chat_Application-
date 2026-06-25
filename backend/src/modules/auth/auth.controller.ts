@@ -110,7 +110,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @UseGuards(AuthGuard('jwt-refresh'))
   @ApiOperation({ summary: 'Refresh access token using refresh token cookie' })
   async refreshTokens(

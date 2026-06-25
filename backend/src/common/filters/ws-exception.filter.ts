@@ -10,9 +10,11 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
 
     if (exception instanceof WsException) {
       const error = exception.getError();
+      const code = typeof error === 'object' && error !== null && 'error' in error ? (error as any).error : 'BadRequest';
       client.emit(ServerEvents.ERROR, {
         success: false,
         error: {
+          code,
           message:
             typeof error === 'string'
               ? error
@@ -23,6 +25,7 @@ export class WsExceptionFilter extends BaseWsExceptionFilter {
       client.emit(ServerEvents.ERROR, {
         success: false,
         error: {
+          code: 'InternalServerError',
           message: 'Internal server error',
         },
       });

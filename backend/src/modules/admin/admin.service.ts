@@ -52,7 +52,7 @@ export class AdminService {
       );
     }
     return this.userModel
-      .findByIdAndUpdate(userId, { role }, { new: true })
+      .findByIdAndUpdate(userId, { role }, { returnDocument: 'after' })
       .select('-passwordHash');
   }
 
@@ -61,7 +61,7 @@ export class AdminService {
       .findByIdAndUpdate(
         userId,
         { status: 'offline', isBanned: true },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .select('-passwordHash');
   }

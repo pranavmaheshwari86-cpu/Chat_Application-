@@ -105,7 +105,7 @@ export class ConversationsService {
             isE2E: createConversationDto.isE2E || false,
           },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       )
       .populate(
         'members.userId',

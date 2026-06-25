@@ -82,6 +82,18 @@ function DirectInboxContent() {
     
     const fetchConversations = async () => {
       try {
+        // Try to load from cache first for instant UI
+        try {
+          const { getCachedConversations } = await import("@/lib/db");
+          const cached = await getCachedConversations();
+          if (cached && cached.length > 0) {
+            setConversations(cached);
+            setLoading(false);
+          }
+        } catch (cacheErr) {
+          console.warn("Could not load cached conversations:", cacheErr);
+        }
+
         const data = await chatService.getConversations();
         const convsArray = Array.isArray(data) ? data : 
                           (Array.isArray(data?.data) ? data.data : 
@@ -104,7 +116,21 @@ function DirectInboxContent() {
       if (!activeConversationId) return;
       
       try {
-        setIsLoadingMessages(activeConversationId, true);
+        // Optimistic UI update using local cache
+        try {
+          const { getCachedMessages } = await import("@/lib/db");
+          const cachedMsgs = await getCachedMessages(activeConversationId);
+          if (cachedMsgs && cachedMsgs.length > 0) {
+            setMessages(activeConversationId, cachedMsgs);
+            // Don't show loading spinner if we have cached messages
+            setIsLoadingMessages(activeConversationId, false);
+          } else {
+            setIsLoadingMessages(activeConversationId, true);
+          }
+        } catch (cacheErr) {
+          setIsLoadingMessages(activeConversationId, true);
+        }
+
         const res = await chatService.getMessages(activeConversationId);
         
         // The API returns { success: true, data: { data: [...], nextCursor: null } }
@@ -340,7 +366,7 @@ function DirectInboxContent() {
           </>
         ) : (
           /* Empty state */
-          <div className="flex flex-1 items-center justify-center">
+          <div className="flex flex-1 h-full w-full items-center justify-center">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -387,23 +413,23 @@ function DirectInboxContent() {
       <AnimatePresence>
         {isNewChatModalOpen && (
           <NewChatModal 
-          isOpen={isNewChatModalOpen} 
-          onClose={() => setIsNewChatModalOpen(false)}
-          onChatCreated={(conv) => {
-            // Unwrap response if it's wrapped by TransformInterceptor { success: true, data: {...} }
-            const actualConv = conv?.data || conv;
-            
-            // Add the new conversation to the store if it doesn't exist
-            const exists = useChatStore.getState().conversations.some(c => c._id === actualConv._id);
-            if (!exists && actualConv._id) {
-              useChatStore.getState().setConversations([actualConv, ...useChatStore.getState().conversations]);
-            }
-            
-            if (actualConv._id) {
-              handleSelectConversation(actualConv._id);
-            }
-          }}
-        />
+            isOpen={isNewChatModalOpen} 
+            onClose={() => setIsNewChatModalOpen(false)}
+            onChatCreated={(conv) => {
+              // Unwrap response if it's wrapped by TransformInterceptor { success: true, data: {...} }
+              const actualConv = conv?.data || conv;
+              
+              // Add the new conversation to the store if it doesn't exist
+              const exists = useChatStore.getState().conversations.some(c => c._id === actualConv._id);
+              if (!exists && actualConv._id) {
+                useChatStore.getState().setConversations([actualConv, ...useChatStore.getState().conversations]);
+              }
+              
+              if (actualConv._id) {
+                handleSelectConversation(actualConv._id);
+              }
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

@@ -64,10 +64,7 @@ import { validate } from './config/config.validation';
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>(
-          'database.uri',
-          'mongodb+srv://pranavmaheshwari86_db_user:vr3I2RzeJdRvf7ug@newflashchat.ouafemc.mongodb.net/flashchat?retryWrites=true&w=majority',
-        ),
+        uri: configService.getOrThrow<string>('database.uri'),
         autoIndex: process.env.NODE_ENV !== 'production',
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
@@ -80,8 +77,8 @@ import { validate } from './config/config.validation';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => [
         {
-          ttl: configService.get<number>('throttle.ttl', 60) * 1000,
-          limit: configService.get<number>('throttle.limit', 100),
+          ttl: configService.getOrThrow<number>('throttle.ttl') * 1000,
+          limit: configService.getOrThrow<number>('throttle.limit'),
         },
       ],
     }),
@@ -103,9 +100,9 @@ import { validate } from './config/config.validation';
           redis: redisUrl
             ? { url: redisUrl, ...baseOptions }
             : {
-                host: configService.get<string>('redis.host', 'localhost'),
-                port: configService.get<number>('redis.port', 6379),
-                password: configService.get<string>('redis.password', ''),
+                host: configService.getOrThrow<string>('redis.host'),
+                port: configService.getOrThrow<number>('redis.port'),
+                password: configService.getOrThrow<string>('redis.password'),
                 ...baseOptions,
               },
         };

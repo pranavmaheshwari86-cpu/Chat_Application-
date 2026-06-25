@@ -33,7 +33,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background w-full">
+    <div className="flex h-[100dvh] overflow-hidden bg-background w-full">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 relative z-20 bg-background/50">
         <main className="flex-1 overflow-y-auto relative pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] md:pb-0">

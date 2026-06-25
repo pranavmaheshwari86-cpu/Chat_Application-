@@ -176,4 +176,5 @@ export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ username: 'text', displayName: 'text' });
 UserSchema.index({ provider: 1, providerId: 1 }, { sparse: true });
+UserSchema.index({ email: 1, provider: 1 });
 UserSchema.index({ blockedUsers: 1 });

@@ -138,11 +138,7 @@ export class MessagesService implements OnModuleInit {
     { prefix: [169, 254], mask: 16 },
   ];
 
-  private readonly dnsCache = new Map<
-    string,
-    { ips: string[]; expires: number }
-  >();
-  private readonly DNS_CACHE_TTL = 10 * 1000; // 10 seconds - prevent DNS rebinding with short TTL
+
   private readonly MAX_RESPONSE_SIZE = 1024 * 1024; // 1MB max response
 
   private isPrivateIp(ip: string): boolean {
@@ -182,42 +178,17 @@ export class MessagesService implements OnModuleInit {
   }
 
   private async resolveHostname(hostname: string): Promise<string[]> {
-    const cached = this.dnsCache.get(hostname);
-    if (cached && cached.expires > Date.now()) {
-      // Re-validate cached IPs on every use to prevent DNS rebinding
-      for (const ip of cached.ips) {
-        if (this.isPrivateIp(ip)) {
-          this.dnsCache.delete(hostname);
-          return [];
-        }
-      }
-      return cached.ips;
-    }
-
     try {
       const { default: dns } = await import('dns/promises');
       const records = await dns.resolve4(hostname);
       const ips = [...new Set(records)];
-      // Validate all resolved IPs immediately
       for (const ip of ips) {
         if (this.isPrivateIp(ip)) {
-          this.dnsCache.set(hostname, {
-            ips: [],
-            expires: Date.now() + this.DNS_CACHE_TTL,
-          });
           return [];
         }
       }
-      this.dnsCache.set(hostname, {
-        ips,
-        expires: Date.now() + this.DNS_CACHE_TTL,
-      });
       return ips;
     } catch {
-      this.dnsCache.set(hostname, {
-        ips: [],
-        expires: Date.now() + this.DNS_CACHE_TTL,
-      });
       return [];
     }
   }
@@ -570,7 +541,7 @@ export class MessagesService implements OnModuleInit {
       updatedMessage = await this.messageModel.findByIdAndUpdate(
         messageId,
         { $pull: { reactions: { userId: new Types.ObjectId(userId), emoji } } },
-        { new: true },
+        { returnDocument: 'after' },
       );
     } else {
       // Add reaction
@@ -585,7 +556,7 @@ export class MessagesService implements OnModuleInit {
             },
           },
         },
-        { new: true },
+        { returnDocument: 'after' },
       );
     }
 

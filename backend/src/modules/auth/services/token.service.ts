@@ -103,7 +103,7 @@ export class TokenService {
           $set: { refreshTokenHash: newRefreshTokenHash },
           $inc: { tokenVersion: 1 },
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .select('+refreshTokenHash +tokenVersion')
       .exec();

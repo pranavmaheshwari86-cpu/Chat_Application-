@@ -44,37 +44,27 @@ async function bootstrap() {
     });
 
     // Security headers
-    if (isProduction) {
-      app.use(
-        helmet({
-          contentSecurityPolicy: {
-            directives: {
-              defaultSrc: ["'self'"],
-              scriptSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'"],
-              imgSrc: [
-                "'self'",
-                'data:',
-                'https://res.cloudinary.com',
-                'https://lh3.googleusercontent.com',
-              ],
-              connectSrc: ["'self'", ...clientUrls, "https://*.vercel.app"],
-              fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-            },
+    app.use(
+      helmet({
+        contentSecurityPolicy: isProduction ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: [
+              "'self'",
+              'data:',
+              'https://res.cloudinary.com',
+              'https://lh3.googleusercontent.com',
+            ],
+            connectSrc: ["'self'", ...clientUrls, "https://*.vercel.app"],
+            fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           },
-          crossOriginEmbedderPolicy: false,
-          crossOriginResourcePolicy: { policy: 'cross-origin' },
-        }),
-      );
-    } else {
-      app.use(
-        helmet({
-          contentSecurityPolicy: false,
-          crossOriginEmbedderPolicy: false,
-          crossOriginResourcePolicy: false,
-        }),
-      );
-    }
+        } : false,
+        crossOriginEmbedderPolicy: false,
+        crossOriginResourcePolicy: isProduction ? { policy: 'cross-origin' } : false,
+      }),
+    );
     app.use(cookieParser());
 
     // Global prefix

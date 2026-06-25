@@ -93,7 +93,7 @@ export class UsersService {
       .findByIdAndUpdate(
         userId,
         { $set: sanitised },
-        { new: true, runValidators: true },
+        { returnDocument: 'after', runValidators: true },
       )
       .select(SENSITIVE_FIELDS)
       .lean<Record<string, any>>()
@@ -122,13 +122,13 @@ export class UsersService {
     );
     await user.save();
 
-    const result = user.toObject();
-    delete result.passwordHash;
-    delete result.refreshTokenHash;
-    delete result.passwordResetToken;
-    delete result.passwordResetExpires;
+    const updatedUser = await this.userModel
+      .findById(userId)
+      .select(SENSITIVE_FIELDS)
+      .lean()
+      .exec();
 
-    return result as UserDocument;
+    return updatedUser as unknown as UserDocument;
   }
 
   /**
@@ -150,7 +150,7 @@ export class UsersService {
             },
           },
         },
-        { new: true, runValidators: true },
+        { returnDocument: 'after', runValidators: true },
       )
       .select(SENSITIVE_FIELDS)
       .lean<Record<string, any>>()

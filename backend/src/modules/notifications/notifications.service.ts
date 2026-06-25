@@ -54,7 +54,7 @@ export class NotificationsService {
         userId: new Types.ObjectId(userId),
       },
       { $set: { isRead: true } },
-      { new: true },
+      { returnDocument: 'after' },
     );
 
     if (!notification) {

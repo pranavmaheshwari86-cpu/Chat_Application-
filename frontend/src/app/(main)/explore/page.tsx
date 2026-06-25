@@ -57,12 +57,12 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto pt-8 px-4 overflow-y-auto pb-20">
+    <div className="flex flex-col h-full w-full max-w-7xl mx-auto pt-8 px-4 overflow-y-auto pb-20">
       <div className="mb-8">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Compass className="w-6 h-6" /> Explore</h1>
       </div>
 
-      <div className="grid grid-cols-3 gap-1 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1 md:gap-4">
         {posts.map(post => (
           <div 
             key={post._id} 

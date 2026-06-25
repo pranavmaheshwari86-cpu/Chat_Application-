@@ -214,7 +214,7 @@ export default function MessageList({ conversationId, conversation, onRetry }: M
           if (!firstMsg) return null;
           const own = isOwnMessage(firstMsg);
           return (
-            <div key={gi} className={cn("flex gap-3", own ? "flex-row-reverse" : "flex-row", "max-w-[95%]", own ? "ml-auto" : "mr-auto")}>
+            <div key={gi} className={cn("flex gap-3", own ? "flex-row-reverse" : "flex-row", "max-w-[90%] md:max-w-[75%] lg:max-w-[65%]", own ? "ml-auto" : "mr-auto")}>
               {/* Avatar - only for received messages */}
               {!own && (
                 <Avatar className="h-8 w-8 shrink-0 mt-auto mb-5 border border-outline-variant/30">

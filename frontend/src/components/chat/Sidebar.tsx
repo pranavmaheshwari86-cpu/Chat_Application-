@@ -27,38 +27,52 @@ interface SidebarProps {
   onNewChatClick: () => void;
 }
 
+interface ChatUser {
+  _id: string;
+  username?: string;
+  displayName?: string;
+  avatar?: string;
+  [key: string]: unknown;
+}
+
+interface ConversationMember {
+  userId: string | ChatUser;
+  unreadCount?: number;
+}
+
 export default function Sidebar({ onSelectConversation, isLoading = false, onNewChatClick }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const { conversations, activeConversationId, setActiveConversation, typingUsers } = useChatStore();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const getDirectName = useCallback((conv: Conversation): string => {
+  const getOtherParticipant = useCallback((conv: Conversation) => {
     const currentUserId = user?._id;
-    if (conv.type === "group") return conv.name || "Group";
-    if (!conv.members || !Array.isArray(conv.members)) return "Unknown";
+    if (!conv.members || !Array.isArray(conv.members)) return null;
     const other = conv.members.find(
-      (m: any) => (m.userId?._id || m.userId) !== currentUserId
+      (m: ConversationMember) => {
+        const id = typeof m.userId === 'object' && m.userId !== null ? m.userId._id : m.userId;
+        return id !== currentUserId;
+      }
     );
     const otherUser = other?.userId;
     if (typeof otherUser === 'object' && otherUser !== null) {
-      return otherUser.displayName || otherUser.username || "Unknown";
+      return {
+        name: otherUser.displayName || otherUser.username || "Unknown",
+        avatar: otherUser.avatar
+      };
     }
-    return "Unknown";
+    return null;
   }, [user]);
 
+  const getDirectName = useCallback((conv: Conversation): string => {
+    if (conv.type === "group") return conv.name || "Group";
+    return getOtherParticipant(conv)?.name || "Unknown";
+  }, [getOtherParticipant]);
+
   const getDirectAvatar = useCallback((conv: Conversation): string | undefined => {
-    const currentUserId = user?._id;
     if (conv.type === "group") return conv.avatar;
-    if (!conv.members || !Array.isArray(conv.members)) return undefined;
-    const other = conv.members.find(
-      (m: any) => (m.userId?._id || m.userId) !== currentUserId
-    );
-    const otherUser = other?.userId;
-    if (typeof otherUser === 'object' && otherUser !== null) {
-      return otherUser.avatar;
-    }
-    return undefined;
-  }, [user]);
+    return getOtherParticipant(conv)?.avatar;
+  }, [getOtherParticipant]);
 
   const filteredConversations = useMemo(() => {
     return conversations.filter((c) => {
@@ -79,14 +93,14 @@ export default function Sidebar({ onSelectConversation, isLoading = false, onNew
     <div className="flex h-full w-full lg:w-80 flex-col border-r border-[#40484b]/30 bg-[#020617]">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-5">
-        <div className="flex items-center gap-3">
-          <h1 className="text-[19px] font-semibold tracking-tight text-[#e1e3e4] font-heading">Conversations</h1>
+        <div className="flex items-center self-center gap-3">
+          <h1 className="text-[19px] leading-none font-semibold tracking-tight text-[#e1e3e4] font-heading">Conversations</h1>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-[#8a9296] hover:text-[#e1e3e4] hover:bg-[#191c1e] rounded-full transition-colors">
+        <div className="flex items-center self-center gap-1.5">
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-[#8a9296] hover:text-[#e1e3e4] hover:bg-[#191c1e] rounded-full transition-colors self-center">
             <Bell className="h-4.5 w-4.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-[#101415] bg-[#E2B859] hover:bg-[#D1A03A] rounded-full shadow-sm transition-colors" onClick={onNewChatClick}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-[#101415] bg-[#E2B859] hover:bg-[#D1A03A] rounded-full shadow-sm transition-colors self-center" onClick={onNewChatClick}>
             <Plus className="h-4.5 w-4.5" />
           </Button>
         </div>
@@ -136,9 +150,13 @@ export default function Sidebar({ onSelectConversation, isLoading = false, onNew
               const name = conv.type === "group" ? conv.name || "Group" : getDirectName(conv);
               const avatar = getDirectAvatar(conv);
               const lastMsg = conv.lastMessage;
-              const currentUserId = user?._id || (user as any)?.id || (user as any)?.userId;
+              const currentUserDict = user as Record<string, unknown> | null;
+              const currentUserId = user?._id || currentUserDict?.id || currentUserDict?.userId;
               
-              const member = conv.members?.find((m: any) => String(m.userId) === String(currentUserId) || String(m.userId?._id) === String(currentUserId));
+              const member = conv.members?.find((m: ConversationMember) => {
+                const id = typeof m.userId === 'object' && m.userId !== null ? m.userId._id : m.userId;
+                return String(id) === String(currentUserId);
+              });
               const unreadCount = member?.unreadCount || 0;
               const isUnread = unreadCount > 0;
               
@@ -150,7 +168,7 @@ export default function Sidebar({ onSelectConversation, isLoading = false, onNew
                   key={conv._id}
                   onClick={() => handleSelect(conv._id)}
                   className={cn(
-                    "flex w-full items-center gap-3.5 rounded-xl px-3 py-3 text-left transition-all duration-200 group",
+                    "flex w-full items-center gap-3.5 rounded-xl px-4 py-3 min-h-[72px] text-left transition-all duration-200 group",
                     isActive
                       ? "bg-[#191c1e] text-[#e1e3e4] shadow-sm ring-1 ring-[#303435]"
                       : "hover:bg-[#0b0f10] text-[#c0c8cb] hover:text-[#e1e3e4]"
@@ -190,11 +208,11 @@ export default function Sidebar({ onSelectConversation, isLoading = false, onNew
                           ? `${typingUsersInConv[0].username} is typing...` 
                           : `${typingUsersInConv.length} people are typing...`}
                       </p>
-                    ) : lastMsg && (
+                    ) : (
                       <p className={cn("text-[13px] truncate", 
                         isUnread ? "font-bold text-[#e1e3e4]" : (isActive ? "text-[#8a9296]" : "text-[#8a9296]/80")
                       )}>
-                        {lastMsg.content || (lastMsg.type === "text" ? "Sent a message" : `[${lastMsg.type}]`)}
+                        {lastMsg ? (lastMsg.content || (lastMsg.type === "text" ? "Sent a message" : `[${lastMsg.type}]`)) : "\u00A0"}
                       </p>
                     )}
                   </div>

@@ -17,7 +17,7 @@ export default function HomePage() {
     <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 flex gap-6 md:gap-10 relative h-full">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-surface-variant/10 via-background to-background pointer-events-none -z-10"></div>
       
-      <div className="flex-1 flex flex-col gap-6 md:gap-10 min-w-0 max-w-7xl 2xl:max-w-[2000px] mx-auto w-full">
+      <div className="flex-1 flex flex-col gap-6 md:gap-10 min-w-0 max-w-7xl mx-auto w-full">
         {/* Daily Context Section */}
         <section className="glass-panel rounded-2xl p-4 sm:p-6 md:p-8 relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-secondary to-surface-variant"></div>
